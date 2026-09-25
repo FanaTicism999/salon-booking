@@ -5,6 +5,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from app.database.engine import init_db
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -65,9 +66,10 @@ async def echo(message: types.Message):
 
 
 async def main():
+    await init_db()
+    print("База данных готова!")
     print("Бот запущен!")
     await dp.start_polling(bot)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
