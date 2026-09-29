@@ -62,3 +62,43 @@ async def delete_service(service_id: int) -> bool:
         await session.delete(service)
         await session.commit()
         return True
+
+# ===== Записи =====
+
+async def create_booking(user_id: int, service_id: int, date: str, time: str) -> Booking:
+    """Создаёт новую запись."""
+    async with async_session() as session:
+        booking = Booking(
+            user_id=user_id,
+            service_id=service_id,
+            date=date,
+            time=time,
+            status="pending",
+        )
+        session.add(booking)
+        await session.commit()
+        await session.refresh(booking)
+        return booking
+
+
+async def get_user_bookings(user_id: int) -> list[Booking]:
+    """Возвращает все записи пользователя."""
+    async with async_session() as session:
+        query = (
+            select(Booking)
+            .where(Booking.user_id == user_id)
+            .order_by(Booking.date, Booking.time)
+        )
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+
+async def get_booked_times(date: str) -> list[str]:
+    """Возвращает список занятых времён на дату."""
+    async with async_session() as session:
+        query = select(Booking.time).where(
+            Booking.date == date,
+            Booking.status != "cancelled",
+        )
+        result = await session.execute(query)
+        return [row[0] for row in result.all()]
