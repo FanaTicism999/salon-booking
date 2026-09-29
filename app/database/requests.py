@@ -92,7 +92,6 @@ async def get_user_bookings(user_id: int) -> list[Booking]:
         result = await session.execute(query)
         return list(result.scalars().all())
 
-
 async def get_booked_times(date: str) -> list[str]:
     """Возвращает список занятых времён на дату."""
     async with async_session() as session:
@@ -102,3 +101,27 @@ async def get_booked_times(date: str) -> list[str]:
         )
         result = await session.execute(query)
         return [row[0] for row in result.all()]
+
+    
+
+async def get_booking_by_id(booking_id: int) -> Booking | None:
+    """Возвращает запись по ID."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(Booking).where(Booking.id == booking_id)
+        )
+        return result.scalar_one_or_none()
+
+
+async def cancel_booking(booking_id: int) -> bool:
+    """Меняет статус записи на cancelled."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(Booking).where(Booking.id == booking_id)
+        )
+        booking = result.scalar_one_or_none()
+        if booking is None:
+            return False
+        booking.status = "cancelled"
+        await session.commit()
+        return True

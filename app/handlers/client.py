@@ -1,11 +1,10 @@
 from aiogram import Router, types, F
+from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-
 from app.database import requests as rq
 
 router = Router()
-
 
 # ===== Главное меню =====
 
@@ -16,7 +15,6 @@ def main_menu():
     builder.button(text="ℹ️ О нас", callback_data="about")
     builder.adjust(1)
     return builder.as_markup()
-
 
 # /start
 @router.message(Command("start"))
@@ -32,7 +30,6 @@ async def cmd_start(message: types.Message):
         f"Выбери, что тебя интересует:",
         reply_markup=main_menu()
     )
-
 
 # ===== Кнопка "Записаться" — показываем список услуг =====
 
@@ -59,47 +56,97 @@ async def cb_book(callback: types.CallbackQuery):
     )
     await callback.answer()
 
-
 # ===== Клиент выбрал услугу =====
 
 @router.callback_query(F.data.startswith("service_"))
-async def cb_select_service(callback: types.CallbackQuery):
+async def cb_select_service(callback: types.CallbackQuery, state: FSMContext):
     service_id = int(callback.data.split("_")[1])
-    services = await rq.get_all_services(only_active=True)
-    service = next((s for s in services if s.id == service_id), None)
+    from app.handlers.booking import start_booking
+    await start_booking(callback, state, service_id)
 
-    if service is None:
-        await callback.message.answer("❌ Услуга не найдена.")
-        await callback.answer()
-        return
-
-    await callback.message.answer(
-        f"Ты выбрал: {service.name}\n"
-        f"💰 Цена: {service.price} ₽\n"
-        f"⏱ Длительность: {service.duration} мин\n\n"
-        f"Выбор даты и времени — в следующем обновлении 🚧"
-    )
-    await callback.answer()
-
+# ===== Кнопка "Мои записи" =====
 
 # ===== Кнопка "Мои записи" =====
 
 @router.callback_query(F.data == "my_bookings")
 async def cb_my_bookings(callback: types.CallbackQuery):
-    await callback.message.answer("Здесь будут твои записи. 🚧")
+    await show_my_bookings(callback.message, callback.from_user.id)
     await callback.answer()
 
 
-# ===== Кнопка "О нас" =====
+# Команда /my_bookings
+@router.message(Command("my_bookings"))
+async def cmd_my_bookings(message: types.Message):
+    await show_my_bookings(message, message.from_user.id)
 
-@router.callback_query(F.data == "about")
-async def cb_about(callback: types.CallbackQuery):
+
+async def show_my_bookings(message: types.Message, telegram_id: int):
+    """Показывает все активные записи клиента."""
+    user = await rq.get_or_create_user(
+        telegram_id=telegram_id,
+        first_name=message.chat.first_name or "клиент",
+        username=message.chat.username,
+    )
+
+    bookings = await rq.get_user_bookings(user.id)
+    active = [b for b in bookings if b.status != "cancelled"]
+
+    if not active:
+        await message.answer(
+            "📭 У тебя нет активных записей.\n\n"
+            "Запишись через кнопку «📝 Записаться»."
+        )
+        return
+
+    # Получаем названия услуг
+    services = await rq.get_all_services(only_active=False)
+    services_map = {s.id: s for s in services}
+
+    builder = InlineKeyboardBuilder()
+    text = "📋 Твои записи:\n\n"
+
+    for b in active:
+        service = services_map.get(b.service_id)
+        service_name = service.name if service else "услуга удалена"
+        text += f"📅 {b.date} в {b.time} — {service_name}\n"
+        builder.button(
+            text=f"❌ Отменить {b.date} {b.time}",
+            callback_data=f"cancel_{b.id}"
+        )
+
+    builder.adjust(1)
+    await message.answer(text, reply_markup=builder.as_markup())
+
+
+# ===== Отмена записи =====
+
+@router.callback_query(F.data.startswith("cancel_"))
+async def cb_cancel_booking(callback: types.CallbackQuery):
+    booking_id = int(callback.data.split("_")[1])
+
+    # Проверяем, что запись принадлежит этому пользователю
+    booking = await rq.get_booking_by_id(booking_id)
+    if booking is None:
+        await callback.message.answer("❌ Запись не найдена.")
+        await callback.answer()
+        return
+
+    user = await rq.get_or_create_user(
+        telegram_id=callback.from_user.id,
+        first_name=callback.from_user.first_name,
+        username=callback.from_user.username,
+    )
+
+    if booking.user_id != user.id:
+        await callback.message.answer("⛔ Это не твоя запись.")
+        await callback.answer()
+        return
+
+    await rq.cancel_booking(booking_id)
     await callback.message.answer(
-        "Это учебный проект — система онлайн-записи.\n"
-        "Скоро здесь появится информация о салоне. 🚧"
+        f"✅ Запись на {booking.date} в {booking.time} отменена."
     )
     await callback.answer()
-
 
 # ===== Прочие сообщения =====
 
