@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Салон — онлайн-запись</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ===== ШАПКА ===== -->
+    <header class="header">
+        <div class="container header__inner">
+            <div class="logo" id="salon-name">Салон</div>
+            <a href="#booking" class="btn btn--small">Записаться</a>
+        </div>
+    </header>
+
+    <!-- ===== HERO ===== -->
+    <section class="hero" id="hero">
+        <div class="container hero__inner">
+            <h1 class="hero__title" id="hero-title">Добро пожаловать</h1>
+            <p class="hero__subtitle" id="hero-subtitle">
+                Профессиональные услуги для вашей красоты и здоровья
+            </p>
+            <a href="#booking" class="btn btn--large">📝 Записаться онлайн</a>
+        </div>
+    </section>
+
+    <!-- ===== УСЛУГИ ===== -->
+    <section class="services" id="services">
+        <div class="container">
+            <h2 class="section-title">Наши услуги</h2>
+            <div class="services__grid" id="services-list">
+                <!-- Карточки услуг подгрузятся из site.json -->
+                <p class="loading">Загрузка услуг...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== КОНТАКТЫ ===== -->
+    <section class="contacts" id="contacts">
+        <div class="container">
+            <h2 class="section-title">Контакты</h2>
+            <div class="contacts__grid">
+                <div class="contact-card">
+                    <div class="contact-card__icon">📞</div>
+                    <div class="contact-card__label">Телефон</div>
+                    <a href="#" class="contact-card__value" id="contact-phone">+7 (___) ___-__-__</a>
+                </div>
+                <div class="contact-card">
+                    <div class="contact-card__icon">📍</div>
+                    <div class="contact-card__label">Адрес</div>
+                    <div class="contact-card__value" id="contact-address">г. Москва, ул. Примерная, 1</div>
+                </div>
+            </div>
+
+            <!-- Соцсети -->
+            <div class="socials">
+                <h3 class="socials__title">Мы в соцсетях</h3>
+                <div class="socials__list" id="socials-list">
+                    <!-- Кнопки соцсетей подгрузятся из site.json -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== ЗАПИСЬ (CTA) ===== -->
+    <section class="cta" id="booking">
+        <div class="container cta__inner">
+            <h2 class="cta__title">Готовы записаться?</h2>
+            <p class="cta__text">Нажмите кнопку — и вы попадёте в нашего бота для записи</p>
+            <a href="#" class="btn btn--large" id="booking-btn" target="_blank">
+                🤖 Открыть бота в Telegram
+            </a>
+        </div>
+    </section>
+
+    <!-- ===== ПОДВАЛ ===== -->
+    <footer class="footer">
+        <div class="container footer__inner">
+            <p>© <span id="footer-year">2026</span> <span id="footer-name">Салон</span>. Все права защищены.</p>
+            <p class="footer__note">Онлайн-запись работает через Telegram-бота</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
