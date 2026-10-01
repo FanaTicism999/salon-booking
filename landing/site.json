@@ -1,5 +1,5 @@
 {
-  "salon_name": "Beauty Studio",
+  "salon_name": "Салон Красоты \"Burmalda\"",
   "logo_image": "images/logo.svg",
   "hero_title": "Добро пожаловать в Beauty Studio",
   "hero_subtitle": "Профессиональные услуги красоты для вашего настроения и уверенности",
@@ -25,11 +25,41 @@
     }
   ],
   "services": [
-    { "name": "Стрижка женская", "price": 2500, "duration": 90, "image": "images/service-1.svg" },
-    { "name": "Стрижка мужская", "price": 1500, "duration": 60, "image": "images/service-2.svg" },
-    { "name": "Окрашивание", "price": 5000, "duration": 180, "image": "images/service-3.svg" },
-    { "name": "Маникюр", "price": 2000, "duration": 90, "image": "images/service-4.svg" },
-    { "name": "Педикюр", "price": 2500, "duration": 120, "image": "images/service-5.svg" },
-    { "name": "Массаж лица", "price": 3000, "duration": 60, "image": "images/service-6.svg" }
+    {
+      "name": "Стрижка женская",
+      "price": 2500,
+      "duration": 90,
+      "image": "images/service-1.svg"
+    },
+    {
+      "name": "Стрижка мужская",
+      "price": 1500,
+      "duration": 60,
+      "image": "images/service-2.svg"
+    },
+    {
+      "name": "Окрашивание",
+      "price": 5000,
+      "duration": 180,
+      "image": "images/service-3.svg"
+    },
+    {
+      "name": "Маникюр",
+      "price": 2000,
+      "duration": 90,
+      "image": "images/service-4.svg"
+    },
+    {
+      "name": "Педикюр",
+      "price": 2500,
+      "duration": 120,
+      "image": "images/service-5.svg"
+    },
+    {
+      "name": "Массаж лица",
+      "price": 3000,
+      "duration": 60,
+      "image": "images/service-6.svg"
+    }
   ]
 }
