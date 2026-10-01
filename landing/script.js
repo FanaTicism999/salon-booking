@@ -17,9 +17,23 @@ function fillText(data) {
         el.textContent = data.salon_name;
     });
 
-    // Hero
+    // Логотип (если задан)
+    const logoEl = document.getElementById('salon-name');
+    if (data.logo_image) {
+        logoEl.innerHTML = `<img src="${data.logo_image}" alt="${data.salon_name}" class="logo__img">`;
+    }
+
+    // Hero: заголовок и слоган
     document.getElementById('hero-title').textContent = data.hero_title;
     document.getElementById('hero-subtitle').textContent = data.hero_subtitle;
+
+    // Hero: фоновая картинка (если задана)
+    const heroEl = document.getElementById('hero');
+    if (data.hero_image) {
+        heroEl.style.backgroundImage = `linear-gradient(135deg, rgba(108, 92, 231, 0.75), rgba(88, 73, 196, 0.75)), url('${data.hero_image}')`;
+        heroEl.style.backgroundSize = 'cover';
+        heroEl.style.backgroundPosition = 'center';
+    }
 
     // Контакты
     const phoneEl = document.getElementById('contact-phone');
@@ -48,11 +62,19 @@ function renderServices(services) {
     services.forEach(service => {
         const card = document.createElement('div');
         card.className = 'service-card';
+
+        const imageHtml = service.image
+            ? `<div class="service-card__image"><img src="${service.image}" alt="${service.name}" loading="lazy"></div>`
+            : '';
+
         card.innerHTML = `
-            <div class="service-card__name">${service.name}</div>
-            <div class="service-card__meta">
-                <div class="service-card__price">${service.price.toLocaleString('ru-RU')} ₽</div>
-                <div class="service-card__duration">⏱ ${service.duration} мин</div>
+            ${imageHtml}
+            <div class="service-card__content">
+                <div class="service-card__name">${service.name}</div>
+                <div class="service-card__meta">
+                    <div class="service-card__price">${service.price.toLocaleString('ru-RU')} ₽</div>
+                    <div class="service-card__duration">⏱ ${service.duration} мин</div>
+                </div>
             </div>
         `;
         container.appendChild(card);
@@ -82,15 +104,12 @@ function renderSocials(socials) {
 
 // ===== 5. Настройка кнопок =====
 function setupButtons(data) {
-    // Все кнопки "Записаться" ведут на бота
     const bookingLinks = document.querySelectorAll('a[href="#booking"], #booking-btn');
 
     bookingLinks.forEach(link => {
         if (link.id === 'booking-btn') {
-            // Кнопка в CTA-блоке — прямая ссылка на бота
             link.href = data.telegram_bot;
         } else {
-            // Кнопки в шапке и hero — ведут к секции CTA
             link.href = '#booking';
         }
     });

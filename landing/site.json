@@ -1,9 +1,11 @@
 {
   "salon_name": "Beauty Studio",
+  "logo_image": "images/logo.svg",
   "hero_title": "Добро пожаловать в Beauty Studio",
   "hero_subtitle": "Профессиональные услуги красоты для вашего настроения и уверенности",
+  "hero_image": "images/hero.svg",
   "phone": "+7 (917) 123-45-67",
-  "address": "г. Уфа, ул. Чернышевского 145",
+  "address": "Уфа, ул. Чернышевского 145",
   "telegram_bot": "https://t.me/my_salon_everyday_booking_bot",
   "socials": [
     {
@@ -23,35 +25,11 @@
     }
   ],
   "services": [
-    {
-      "name": "Стрижка женская",
-      "price": 2500,
-      "duration": 90
-    },
-    {
-      "name": "Стрижка мужская",
-      "price": 1500,
-      "duration": 60
-    },
-    {
-      "name": "Окрашивание",
-      "price": 5000,
-      "duration": 180
-    },
-    {
-      "name": "Маникюр",
-      "price": 2000,
-      "duration": 90
-    },
-    {
-      "name": "Педикюр",
-      "price": 2500,
-      "duration": 120
-    },
-    {
-      "name": "Массаж лица",
-      "price": 3000,
-      "duration": 60
-    }
+    { "name": "Стрижка женская", "price": 2500, "duration": 90, "image": "images/service-1.svg" },
+    { "name": "Стрижка мужская", "price": 1500, "duration": 60, "image": "images/service-2.svg" },
+    { "name": "Окрашивание", "price": 5000, "duration": 180, "image": "images/service-3.svg" },
+    { "name": "Маникюр", "price": 2000, "duration": 90, "image": "images/service-4.svg" },
+    { "name": "Педикюр", "price": 2500, "duration": 120, "image": "images/service-5.svg" },
+    { "name": "Массаж лица", "price": 3000, "duration": 60, "image": "images/service-6.svg" }
   ]
 }
