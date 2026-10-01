@@ -17,12 +17,6 @@ function fillText(data) {
         el.textContent = data.salon_name;
     });
 
-    // Логотип (если задан)
-    const logoEl = document.getElementById('salon-name');
-    if (data.logo_image) {
-        logoEl.innerHTML = `<img src="${data.logo_image}" alt="${data.salon_name}" class="logo__img">`;
-    }
-
     // Hero: заголовок и слоган
     document.getElementById('hero-title').textContent = data.hero_title;
     document.getElementById('hero-subtitle').textContent = data.hero_subtitle;
