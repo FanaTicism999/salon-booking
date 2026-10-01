@@ -77,3 +77,41 @@ async def update_field(field_name: str, new_value: str) -> dict:
     data[field_name] = new_value
     await update_site_json(data)
     return data
+
+async def upload_file(file_path: str, content_bytes: bytes, commit_message: str) -> str:
+    """
+    Загружает файл в GitHub репозиторий.
+    file_path — путь внутри репозитория (например, 'landing/images/hero.jpg')
+    content_bytes — содержимое файла в байтах
+    commit_message — сообщение коммита
+
+    Возвращает URL созданного файла (raw).
+    """
+    url = f"{API_URL}/repos/{GITHUB_REPO}/contents/{file_path}"
+
+    # Проверяем, существует ли уже файл (нужно для sha при обновлении)
+    sha = None
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=_headers()) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                sha = data.get("sha")
+
+    # Кодируем содержимое в base64
+    content_b64 = base64.b64encode(content_bytes).decode("ascii")
+
+    payload = {
+        "message": commit_message,
+        "content": content_b64,
+    }
+    if sha:
+        payload["sha"] = sha  # обязательно при обновлении существующего файла
+
+    async with aiohttp.ClientSession() as session:
+        async with session.put(url, headers=_headers(), json=payload) as resp:
+            if resp.status not in (200, 201):
+                text = await resp.text()
+                raise Exception(f"GitHub API error {resp.status}: {text}")
+
+    # Возвращаем raw URL для этого файла
+    return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{file_path}"
