@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 from app.database.engine import init_db
-from app.handlers import admin, client, booking
+from app.handlers import admin, client, booking, editor
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -17,7 +17,8 @@ async def main():
 
     dp.include_router(admin.router)
     dp.include_router(client.router)
-    dp.include_router(booking.router)  
+    dp.include_router(booking.router)
+    dp.include_router(editor.router)   
 
     print("Бот запущен!")
     await dp.start_polling(bot)
