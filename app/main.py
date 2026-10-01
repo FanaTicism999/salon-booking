@@ -31,13 +31,12 @@ async def main():
     await init_db()
     print("База данных готова!")
 
-    # Запускаем фейковый HTTP-сервер для Render
     await run_fake_server()
 
     dp.include_router(admin.router)
+    dp.include_router(editor.router)      
     dp.include_router(client.router)
     dp.include_router(booking.router)
-    dp.include_router(editor.router)
 
     print("Бот запущен!")
     await dp.start_polling(bot)
