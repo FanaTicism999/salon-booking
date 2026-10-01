@@ -60,5 +60,6 @@
       "duration": 60,
       "image": "images/service-6.svg"
     }
-  ]
+  ],
+  "logo_image": "images/logo.jpg"
 }
