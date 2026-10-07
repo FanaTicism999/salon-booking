@@ -485,3 +485,32 @@ a.contact-card__value:hover {
 .service-card__content {
     padding: 24px 28px 28px;
 }
+
+/* ===== Блок "Ещё больше услуг" ===== */
+.services__more {
+    text-align: center;
+    margin-top: 48px;
+    font-size: 18px;
+    color: var(--text-light);
+    line-height: 1.6;
+}
+
+.services__more a {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: border-color 0.2s ease;
+}
+
+.services__more a:hover {
+    border-bottom-color: var(--accent);
+}
+
+/* Адаптив */
+@media (max-width: 768px) {
+    .services__more {
+        font-size: 16px;
+        margin-top: 32px;
+    }
+    }

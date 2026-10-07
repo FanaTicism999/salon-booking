@@ -156,7 +156,7 @@ async def cb_choose_time(callback: types.CallbackQuery, state: FSMContext):
 # ===== Отмена записи =====
 
 @router.callback_query(F.data == "cancel_booking")
-async def cb_cancel_booking(callback: types.CallbackQuery, state: FSMContext):
+async def cb_cancel_flow(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.answer("❌ Запись отменена.")
     await callback.answer()

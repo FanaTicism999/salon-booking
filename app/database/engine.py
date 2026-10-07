@@ -1,12 +1,16 @@
+import os
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.database.models import Base
 
-# Файл базы данных будет лежать в корне проекта: salon.db
-DATABASE_URL = "sqlite+aiosqlite:///salon.db"
+# На Render DATABASE_URL берётся из переменных окружения (Neon)
+# Локально используется SQLite
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///salon.db")
+
+# SQLAlchemy требует префикс +asyncpg для PostgreSQL
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 engine = create_async_engine(DATABASE_URL, echo=False)
-
-# Фабрика сессий — через неё делаем запросы к БД
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

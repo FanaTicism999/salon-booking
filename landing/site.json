@@ -24,42 +24,58 @@
     }
   ],
   "services": [
-    {
-      "name": "Стрижка женская",
-      "price": 2500,
-      "duration": 90,
-      "image": "images/service-1.jpg"
-    },
-    {
-      "name": "Стрижка мужская",
-      "price": 1500,
-      "duration": 60,
-      "image": "images/service-2.jpg"
-    },
-    {
-      "name": "Окрашивание",
-      "price": 5000,
-      "duration": 180,
-      "image": "images/service-3.jpg"
-    },
-    {
-      "name": "Маникюр",
-      "price": 2000,
-      "duration": 90,
-      "image": "images/service-4.jpg"
-    },
-    {
-      "name": "Педикюр",
-      "price": 2500,
-      "duration": 120,
-      "image": "images/service-5.jpg"
-    },
-    {
-      "name": "Массаж лица",
-      "price": 3000,
-      "duration": 60,
-      "image": "images/service-6.jpg"
-    }
-  ],
-  "logo_image": "images/logo.jpg"
-}
+  {
+    "name": "Стрижка женская",
+    "price": 2500,
+    "duration": 90,
+    "image": "images/service-1.jpg"
+  },
+  {
+    "name": "Стрижка мужская",
+    "price": 1500,
+    "duration": 60,
+    "image": "images/service-2.jpg"
+  },
+  {
+    "name": "Окрашивание",
+    "price": 5000,
+    "duration": 180,
+    "image": "images/service-3.jpg"
+  },
+  {
+    "name": "Маникюр",
+    "price": 2000,
+    "duration": 90,
+    "image": "images/service-4.jpg"
+  },
+  {
+    "name": "Педикюр",
+    "price": 2500,
+    "duration": 120,
+    "image": "images/service-5.jpg"
+  },
+  {
+    "name": "Массаж лица",
+    "price": 3000,
+    "duration": 60,
+    "image": "images/service-6.jpg"
+  },
+  {
+    "name": "Эпиляция",
+    "price": 3000,
+    "duration": 60,
+    "image": "images/service-7.jpg"
+  },
+  {
+    "name": "Коррекция бровей",
+    "price": 1000,
+    "duration": 30,
+    "image": "images/service-8.jpg"
+  },
+  {
+    "name": "Наращивание ресниц",
+    "price": 4000,
+    "duration": 120,
+    "image": "images/service-9.jpg"
+  }
+  ]

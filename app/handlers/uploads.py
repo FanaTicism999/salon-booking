@@ -73,8 +73,25 @@ UPLOAD_TARGETS = {
         "value": None,
         "label": "фото услуги 6 (Массаж лица)",
     },
+        "upload_service7": {
+        "path": "landing/images/service-7.jpg",
+        "field": None,
+        "value": None,
+        "label": "фото услуги 7 (Эпиляция)",
+    },
+    "upload_service8": {
+        "path": "landing/images/service-8.jpg",
+        "field": None,
+        "value": None,
+        "label": "фото услуги 8 (Коррекция бровей)",
+    },
+    "upload_service9": {
+        "path": "landing/images/service-9.jpg",
+        "field": None,
+        "value": None,
+        "label": "фото услуги 9 (Наращивание ресниц)",
+    },
 }
-
 
 # ===== Универсальный обработчик команд загрузки =====
 
