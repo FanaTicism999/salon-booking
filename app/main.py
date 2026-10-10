@@ -33,12 +33,12 @@ async def main():
 
     await run_fake_server()
 
-    dp.include_router(admin.router)
-    dp.include_router(editor.router)     
-    dp.include_router(uploads.router)
-    dp.include_router(help_cmd.router) 
-    dp.include_router(client.router)
-    dp.include_router(booking.router)
+dp.include_router(admin.router)
+dp.include_router(editor.router)
+dp.include_router(uploads.router)
+dp.include_router(help_cmd.router)
+dp.include_router(booking.router)
+dp.include_router(client.router)
 
     print("Бот запущен!")
     await dp.start_polling(bot)

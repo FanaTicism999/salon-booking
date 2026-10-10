@@ -66,8 +66,6 @@ async def cb_select_service(callback: types.CallbackQuery, state: FSMContext):
 
 # ===== Кнопка "Мои записи" =====
 
-# ===== Кнопка "Мои записи" =====
-
 @router.callback_query(F.data == "my_bookings")
 async def cb_my_bookings(callback: types.CallbackQuery):
     await show_my_bookings(callback.message, callback.from_user.id)
@@ -120,7 +118,7 @@ async def show_my_bookings(message: types.Message, telegram_id: int):
 
 # ===== Отмена записи =====
 
-@router.callback_query(F.data.startswith("cancel_"))
+@router.callback_query(F.data.regexp(r"^cancel_\d+$"))
 async def cb_cancel_booking(callback: types.CallbackQuery):
     booking_id = int(callback.data.split("_")[1])
 
