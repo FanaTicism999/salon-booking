@@ -19,6 +19,14 @@ def main_menu():
 # /start
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
+    # Проверяем блокировку
+    if await rq.is_blocked(message.from_user.id):
+        await message.answer(
+            "⛔ Вы заблокированы и не можете использовать бота.\n"
+            "Если считаете это ошибкой — свяжитесь с администратором."
+        )
+        return
+
     await rq.get_or_create_user(
         telegram_id=message.from_user.id,
         first_name=message.from_user.first_name,
@@ -35,6 +43,14 @@ async def cmd_start(message: types.Message):
 
 @router.callback_query(F.data == "book")
 async def cb_book(callback: types.CallbackQuery):
+    # Проверяем блокировку
+    if await rq.is_blocked(callback.from_user.id):
+        await callback.message.answer(
+            "⛔ Вы заблокированы и не можете записаться."
+        )
+        await callback.answer()
+        return
+
     services = await rq.get_all_services(only_active=True)
 
     if not services:

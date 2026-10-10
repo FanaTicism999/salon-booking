@@ -40,3 +40,11 @@ class Booking(Base):
 
     user: Mapped["User"] = relationship(back_populates="bookings")
     service: Mapped["Service"] = relationship()
+
+class BlockedUser(Base):
+    __tablename__ = "blocked_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    blocked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

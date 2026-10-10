@@ -3,8 +3,8 @@ from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-
 from app.database import requests as rq
+from app.handlers.booking import today_salon
 
 router = Router()
 
@@ -115,3 +115,112 @@ async def cmd_del_service(message: types.Message):
         await message.answer(f"✅ Услуга с ID {parts[1]} удалена.")
     else:
         await message.answer(f"❌ Услуга с ID {parts[1]} не найдена.")
+
+        # ===== Блокировка клиентов =====
+
+@router.message(Command("block"))
+async def cmd_block(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ У тебя нет прав для этой команды.")
+        return
+
+    parts = message.text.split(maxsplit=2)
+    if len(parts) < 2 or not parts[1].isdigit():
+        await message.answer(
+            "Использование: /block <telegram_id>\n"
+            "Например: /block 123456789\n\n"
+            "Найти ID клиента: /bookings_today"
+        )
+        return
+
+    telegram_id = int(parts[1])
+    reason = parts[2] if len(parts) > 2 else None
+
+    added = await rq.block_user(telegram_id, reason)
+    if added:
+        await message.answer(
+            f"✅ Клиент <code>{telegram_id}</code> заблокирован.\n"
+            f"Причина: {reason or '—'}",
+            parse_mode="HTML"
+        )
+    else:
+        await message.answer(f"ℹ️ Клиент <code>{telegram_id}</code> уже заблокирован.", parse_mode="HTML")
+
+
+@router.message(Command("unblock"))
+async def cmd_unblock(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ У тебя нет прав для этой команды.")
+        return
+
+    parts = message.text.split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await message.answer("Использование: /unblock <telegram_id>")
+        return
+
+    telegram_id = int(parts[1])
+    removed = await rq.unblock_user(telegram_id)
+    if removed:
+        await message.answer(f"✅ Клиент <code>{telegram_id}</code> разблокирован.", parse_mode="HTML")
+    else:
+        await message.answer(f"ℹ️ Клиент <code>{telegram_id}</code> не был заблокирован.", parse_mode="HTML")
+
+
+@router.message(Command("blocked"))
+async def cmd_blocked(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ У тебя нет прав для этой команды.")
+        return
+
+    blocked = await rq.get_blocked_users()
+    if not blocked:
+        await message.answer("📭 Список заблокированных пуст.")
+        return
+
+    text = f"🚫 <b>Заблокированные ({len(blocked)})</b>\n\n"
+    for b in blocked:
+        text += f"🆔 <code>{b.telegram_id}</code>"
+        if b.reason:
+            text += f" — {b.reason}"
+        text += f"\n📅 {b.blocked_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+
+    await message.answer(text, parse_mode="HTML")
+
+
+# ===== Записи на сегодня =====
+
+
+@router.message(Command("bookings_today"))
+async def cmd_bookings_today(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ У тебя нет прав для этой команды.")
+        return
+
+    today = today_salon().isoformat()
+    bookings = await rq.get_bookings_for_date(today)
+
+    if not bookings:
+        await message.answer(f"📭 На сегодня ({today}) записей нет.")
+        return
+
+    services = await rq.get_all_services(only_active=False)
+    services_map = {s.id: s for s in services}
+
+    text = f"📋 <b>Записи на сегодня ({today})</b>\n\n"
+
+    for b in bookings:
+        # Получаем пользователя
+        user = await rq.get_user_by_id(b.user_id)
+        service = services_map.get(b.service_id)
+        service_name = service.name if service else "услуга удалена"
+
+        text += f"🕐 <b>{b.time}</b> — {service_name}\n"
+        if user:
+            text += f"👤 {user.first_name}"
+            if user.username:
+                text += f" (@{user.username})"
+            text += f"\n🆔 <code>{user.telegram_id}</code>\n"
+        text += f"📅 {b.date}\n\n"
+
+    text += f"<b>Всего: {len(bookings)}</b>"
+    await message.answer(text, parse_mode="HTML")

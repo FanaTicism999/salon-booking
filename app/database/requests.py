@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from app.database.engine import async_session
-from app.database.models import Service, User, Booking
+from app.database.models import Service, User, Booking, BlockedUser
 
 
 # ===== Пользователи =====
@@ -125,3 +125,78 @@ async def cancel_booking(booking_id: int) -> bool:
         booking.status = "cancelled"
         await session.commit()
         return True
+
+# ===== Блокировка пользователей =====
+
+async def block_user(telegram_id: int, reason: str | None = None) -> bool:
+    """Блокирует пользователя. Возвращает True, если заблокирован впервые."""
+    async with async_session() as session:
+        # Проверяем, не заблокирован ли уже
+        result = await session.execute(
+            select(BlockedUser).where(BlockedUser.telegram_id == telegram_id)
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing is not None:
+            return False  # уже был заблокирован
+
+        blocked = BlockedUser(telegram_id=telegram_id, reason=reason)
+        session.add(blocked)
+        await session.commit()
+        return True
+
+
+async def unblock_user(telegram_id: int) -> bool:
+    """Разблокирует пользователя. Возвращает True, если был заблокирован."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(BlockedUser).where(BlockedUser.telegram_id == telegram_id)
+        )
+        blocked = result.scalar_one_or_none()
+
+        if blocked is None:
+            return False
+
+        await session.delete(blocked)
+        await session.commit()
+        return True
+
+
+async def is_blocked(telegram_id: int) -> bool:
+    """Проверяет, заблокирован ли пользователь."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(BlockedUser).where(BlockedUser.telegram_id == telegram_id)
+        )
+        return result.scalar_one_or_none() is not None
+
+
+async def get_blocked_users() -> list[BlockedUser]:
+    """Возвращает список всех заблокированных."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(BlockedUser).order_by(BlockedUser.blocked_at.desc())
+        )
+        return list(result.scalars().all())
+
+
+# ===== Записи на дату =====
+
+async def get_bookings_for_date(date_str: str) -> list[Booking]:
+    """Возвращает все активные записи на указанную дату."""
+    async with async_session() as session:
+        query = (
+            select(Booking)
+            .where(Booking.date == date_str, Booking.status != "cancelled")
+            .order_by(Booking.time)
+        )
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+async def get_user_by_id(user_id: int) -> User | None:
+    """Возвращает пользователя по внутреннему ID."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(User).where(User.id == user_id)
+        )
+        return result.scalar_one_or_none()
