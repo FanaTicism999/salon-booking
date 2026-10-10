@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from aiogram import Router, types, F
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -8,10 +8,10 @@ from app.database import requests as rq
 
 router = Router()
 
-from datetime import date, datetime, timedelta, timezone
-
 # Часовой пояс салона — UTC+5 (Уфа)
-SALON_TZ = timezone(timedelta(hours=5)) # Время меняется посредством изменения цифры (Московское UTC 3)
+# Если салон в Москве — hours=3, в Новосибирске — hours=7
+SALON_TZ = timezone(timedelta(hours=5))
+
 
 def now_salon():
     """Текущее время в часовом поясе салона."""
@@ -21,6 +21,7 @@ def now_salon():
 def today_salon():
     """Сегодняшняя дата в часовом поясе салона."""
     return now_salon().date()
+
 
 # ===== Состояния записи =====
 
@@ -38,7 +39,7 @@ ALL_TIMES = [f"{h:02d}:00" for h in range(10, 19)]
 
 def dates_keyboard(service_id: int):
     builder = InlineKeyboardBuilder()
-    today = date.today()
+    today = today_salon()  # ← используем время салона
     weekdays_ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
     for i in range(7):
@@ -56,10 +57,7 @@ def dates_keyboard(service_id: int):
     return builder.as_markup()
 
 
-# ===== Клавиатура со временем =====
-
-from datetime import date, datetime, timedelta
-
+# ===== Клавиатура со временем (с учётом 2-часового запаса) =====
 
 async def times_keyboard(service_id: int, date_str: str):
     """Показывает только свободные слоты с учётом прошедшего времени (запас 2 часа)."""
@@ -68,24 +66,25 @@ async def times_keyboard(service_id: int, date_str: str):
     builder = InlineKeyboardBuilder()
     free_count = 0
 
-    # Проверяем, сегодня ли выбранная дата
-    today = date.today()
+    # Проверяем, сегодня ли выбранная дата (по времени салона)
+    today = today_salon()
     is_today = date_str == today.isoformat()
 
     # Текущее время + 2 часа — минимальное доступное время
-    now_plus_2h = datetime.now() + timedelta(hours=2)
+    now_plus_2h = now_salon() + timedelta(hours=2)
 
     for t in ALL_TIMES:
         # Пропускаем занятые
         if t in booked:
             continue
 
-        # Если выбрана СЕГОДНЯШНЯЯ дата — проверяем, не прошло ли время
+        # Если сегодня — проверяем, не прошло ли время
         if is_today:
             hour, minute = map(int, t.split(":"))
-            slot_time = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
-
-            # Пропускаем слоты, которые раньше чем через 2 часа
+            slot_time = datetime.combine(
+                today,
+                datetime.min.time().replace(hour=hour, minute=minute)
+            )
             if slot_time <= now_plus_2h:
                 continue
 
@@ -93,8 +92,10 @@ async def times_keyboard(service_id: int, date_str: str):
         free_count += 1
 
     if free_count == 0:
-        # Если всё занято или прошло
-        builder.button(text="⬅️ Выбрать другую дату", callback_data=f"back_to_dates_{service_id}")
+        builder.button(
+            text="⬅️ Выбрать другую дату",
+            callback_data=f"back_to_dates_{service_id}"
+        )
     else:
         builder.button(text="❌ Отмена", callback_data="cancel_booking")
 
@@ -141,6 +142,7 @@ async def cb_choose_date(callback: types.CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
+
 # ===== Шаг 3: клиент выбрал время — сохраняем запись =====
 
 @router.callback_query(F.data.startswith("time_"), BookingFlow.choosing_time)
@@ -162,12 +164,15 @@ async def cb_choose_time(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    # Проверяем, что время не в прошлом (с учётом запаса 2 часа)
-    today = date.today()
+    # Проверяем, что время не в прошлом (с учётом 2-часового запаса)
+    today = today_salon()
     if date_str == today.isoformat():
-        now_plus_2h = datetime.now() + timedelta(hours=2)
+        now_plus_2h = now_salon() + timedelta(hours=2)
         hour, minute = map(int, time_str.split(":"))
-        slot_time = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
+        slot_time = datetime.combine(
+            today,
+            datetime.min.time().replace(hour=hour, minute=minute)
+        )
         if slot_time <= now_plus_2h:
             await callback.message.answer(
                 "⚠️ На это время уже нельзя записаться (нужно минимум за 2 часа). Выбери другое:",
@@ -201,7 +206,8 @@ async def cb_choose_time(callback: types.CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
-# ===== Отмена записи =====
+
+# ===== Отмена процесса записи =====
 
 @router.callback_query(F.data == "cancel_booking")
 async def cb_cancel_flow(callback: types.CallbackQuery, state: FSMContext):
@@ -209,7 +215,8 @@ async def cb_cancel_flow(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer("❌ Запись отменена.")
     await callback.answer()
 
-    # ===== Вернуться к выбору даты =====
+
+# ===== Вернуться к выбору даты =====
 
 @router.callback_query(F.data.startswith("back_to_dates_"))
 async def cb_back_to_dates(callback: types.CallbackQuery, state: FSMContext):
