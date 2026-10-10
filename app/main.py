@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 from app.database.engine import init_db
-from app.handlers import admin, client, booking, editor, uploads
+from app.handlers import admin, client, booking, editor, uploads, help_cmd
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -36,6 +36,7 @@ async def main():
     dp.include_router(admin.router)
     dp.include_router(editor.router)     
     dp.include_router(uploads.router)
+    dp.include_router(help_cmd.router) 
     dp.include_router(client.router)
     dp.include_router(booking.router)
 
