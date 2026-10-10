@@ -153,3 +153,34 @@ async def cb_cancel_booking(callback: types.CallbackQuery):
 @router.message()
 async def echo(message: types.Message):
     await message.answer(f"Ты написал: {message.text}")
+
+@router.callback_query(F.data == "about")
+async def cb_about(callback: types.CallbackQuery):
+    from app import github_api
+
+    try:
+        # Читаем данные сайта из GitHub
+        data, _ = await github_api.get_site_json()
+
+        name = data.get("salon_name", "Салон")
+        address = data.get("address", "—")
+        phone = data.get("phone", "—")
+        bot_url = data.get("telegram_bot", "")
+
+        text = (
+            f"ℹ️ <b>{name}</b>\n\n"
+            f"📍 <b>Адрес:</b> {address}\n"
+            f"📞 <b>Телефон:</b> {phone}\n\n"
+            f"💬 <b>Мы в Telegram:</b> {bot_url}\n\n"
+            f"📝 Записаться можно прямо в этом боте — нажми «📝 Записаться»."
+        )
+
+        await callback.message.answer(text, parse_mode="HTML")
+    except Exception as e:
+        await callback.message.answer(
+            "ℹ️ Информация о салоне временно недоступна.\n"
+            f"Попробуйте позже. 🚧"
+        )
+        print(f"Ошибка в /about: {e}")
+
+    await callback.answer()
