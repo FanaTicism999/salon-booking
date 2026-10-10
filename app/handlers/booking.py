@@ -8,6 +8,19 @@ from app.database import requests as rq
 
 router = Router()
 
+from datetime import date, datetime, timedelta, timezone
+
+# Часовой пояс салона — UTC+5 (Уфа)
+SALON_TZ = timezone(timedelta(hours=5)) # Время меняется посредством изменения цифры (Московское UTC 3)
+
+def now_salon():
+    """Текущее время в часовом поясе салона."""
+    return datetime.now(SALON_TZ).replace(tzinfo=None)
+
+
+def today_salon():
+    """Сегодняшняя дата в часовом поясе салона."""
+    return now_salon().date()
 
 # ===== Состояния записи =====
 
