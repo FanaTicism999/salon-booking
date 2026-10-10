@@ -45,21 +45,42 @@ def dates_keyboard(service_id: int):
 
 # ===== Клавиатура со временем =====
 
+from datetime import date, datetime, timedelta
+
+
 async def times_keyboard(service_id: int, date_str: str):
-    """Показывает только свободные слоты."""
+    """Показывает только свободные слоты с учётом прошедшего времени (запас 2 часа)."""
     booked = await rq.get_booked_times(date_str)
 
     builder = InlineKeyboardBuilder()
     free_count = 0
 
+    # Проверяем, сегодня ли выбранная дата
+    today = date.today()
+    is_today = date_str == today.isoformat()
+
+    # Текущее время + 2 часа — минимальное доступное время
+    now_plus_2h = datetime.now() + timedelta(hours=2)
+
     for t in ALL_TIMES:
+        # Пропускаем занятые
         if t in booked:
-            continue  # пропускаем занятые
+            continue
+
+        # Если выбрана СЕГОДНЯШНЯЯ дата — проверяем, не прошло ли время
+        if is_today:
+            hour, minute = map(int, t.split(":"))
+            slot_time = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
+
+            # Пропускаем слоты, которые раньше чем через 2 часа
+            if slot_time <= now_plus_2h:
+                continue
+
         builder.button(text=t, callback_data=f"time_{service_id}_{date_str}_{t}")
         free_count += 1
 
     if free_count == 0:
-        # Если всё занято — только кнопка "Назад"
+        # Если всё занято или прошло
         builder.button(text="⬅️ Выбрать другую дату", callback_data=f"back_to_dates_{service_id}")
     else:
         builder.button(text="❌ Отмена", callback_data="cancel_booking")
@@ -127,6 +148,20 @@ async def cb_choose_time(callback: types.CallbackQuery, state: FSMContext):
         )
         await callback.answer()
         return
+
+    # Проверяем, что время не в прошлом (с учётом запаса 2 часа)
+    today = date.today()
+    if date_str == today.isoformat():
+        now_plus_2h = datetime.now() + timedelta(hours=2)
+        hour, minute = map(int, time_str.split(":"))
+        slot_time = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
+        if slot_time <= now_plus_2h:
+            await callback.message.answer(
+                "⚠️ На это время уже нельзя записаться (нужно минимум за 2 часа). Выбери другое:",
+                reply_markup=await times_keyboard(service_id, date_str)
+            )
+            await callback.answer()
+            return
 
     # Получаем пользователя из БД
     user = await rq.get_or_create_user(
