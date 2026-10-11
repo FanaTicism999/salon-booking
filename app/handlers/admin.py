@@ -117,7 +117,7 @@ async def cmd_del_service(message: types.Message):
     else:
         await message.answer(f"❌ Услуга с ID {parts[1]} не найдена.")
 
-        # ===== Блокировка клиентов =====
+# ===== Блокировка клиентов =====
 
 @router.message(Command("block"))
 async def cmd_block(message: types.Message):
@@ -278,4 +278,139 @@ async def cmd_bookings_week(message: types.Message):
             text += f"\n  🆔 <code>{user.telegram_id}</code>\n"
 
     text += f"\n<b>Всего: {len(bookings)}</b>"
+    await message.answer(text, parse_mode="HTML")
+
+# ===== Информация о клиенте =====
+
+@router.message(Command("user"))
+async def cmd_user(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ У тебя нет прав для этой команды.")
+        return
+
+    parts = message.text.split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await message.answer(
+            "Использование: /user <telegram_id>\n"
+            "Например: /user 575558031"
+        )
+        return
+
+    telegram_id = int(parts[1])
+    user = await rq.get_user_by_telegram_id(telegram_id)
+
+    if user is None:
+        await message.answer(
+            f"❌ Клиент с ID <code>{telegram_id}</code> не найден.",
+            parse_mode="HTML"
+        )
+        return
+
+    total = await rq.get_user_bookings_count(user.id)
+    active = await rq.get_user_active_bookings_count(user.id)
+    blocked = await rq.is_blocked(telegram_id)
+
+    text = (
+        f"👤 <b>Информация о клиенте</b>\n\n"
+        f"🆔 <code>{user.telegram_id}</code>\n"
+        f"📝 Имя: {user.first_name}\n"
+    )
+    if user.username:
+        text += f"💬 Username: @{user.username}\n"
+    text += (
+        f"📅 Создан: {user.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+        f"📊 Всего записей: {total}\n"
+        f"✅ Активных: {active}\n"
+        f"🚫 Заблокирован: {'да' if blocked else 'нет'}\n"
+    )
+
+    await message.answer(text, parse_mode="HTML")
+
+
+# ===== История записей клиента =====
+
+@router.message(Command("history"))
+async def cmd_history(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ У тебя нет прав для этой команды.")
+        return
+
+    parts = message.text.split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await message.answer(
+            "Использование: /history <telegram_id>\n"
+            "Например: /history 575558031"
+        )
+        return
+
+    telegram_id = int(parts[1])
+    user = await rq.get_user_by_telegram_id(telegram_id)
+
+    if user is None:
+        await message.answer(
+            f"❌ Клиент с ID <code>{telegram_id}</code> не найден.",
+            parse_mode="HTML"
+        )
+        return
+
+    bookings = await rq.get_user_bookings(user.id)
+    if not bookings:
+        await message.answer(f"📭 У клиента {user.first_name} нет записей.")
+        return
+
+    services = await rq.get_all_services(only_active=False)
+    services_map = {s.id: s for s in services}
+
+    text = f"📋 <b>История записей: {user.first_name}</b>\n"
+    text += f"🆔 <code>{user.telegram_id}</code>\n\n"
+
+    # Показываем последние 15 записей
+    for b in bookings[-15:]:
+        service = services_map.get(b.service_id)
+        service_name = service.name if service else "услуга удалена"
+        status_emoji = "✅" if b.status != "cancelled" else "❌"
+        text += f"{status_emoji} {b.date} {b.time} — {service_name}\n"
+
+    if len(bookings) > 15:
+        text += f"\n... и ещё {len(bookings) - 15} записей"
+
+    text += f"\n\n<b>Всего: {len(bookings)}</b>"
+    await message.answer(text, parse_mode="HTML")
+
+
+# ===== Статистика =====
+
+@router.message(Command("stats"))
+async def cmd_stats(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ У тебя нет прав для этой команды.")
+        return
+
+    # Период: последние 30 дней
+    today = today_salon()
+    start_date = today - timedelta(days=30)
+
+    stats = await rq.get_stats_for_period(
+        start_date.isoformat(),
+        today.isoformat(),
+    )
+
+    if stats["total"] == 0:
+        await message.answer(
+            f"📭 За последние 30 дней записей нет."
+        )
+        return
+
+    text = f"📊 <b>Статистика за 30 дней</b>\n"
+    text += f"({start_date.strftime('%d.%m')} — {today.strftime('%d.%m')})\n\n"
+    text += f"📋 Всего записей: <b>{stats['total']}</b>\n"
+    text += f"✅ Активных: <b>{stats['active']}</b>\n"
+    text += f"❌ Отменённых: <b>{stats['cancelled']}</b>\n"
+    text += f"👥 Уникальных клиентов: <b>{stats['unique_users']}</b>\n\n"
+
+    if stats["popular"]:
+        text += f"🔥 <b>Популярные услуги:</b>\n"
+        for i, (name, count) in enumerate(stats["popular"], 1):
+            text += f"{i}. {name} — {count} раз\n"
+
     await message.answer(text, parse_mode="HTML")
