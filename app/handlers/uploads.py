@@ -113,17 +113,21 @@ async def cmd_upload(message: types.Message, state: FSMContext):
     await state.set_state(UploadFlow.waiting_photo)
     await message.answer(
         f"📸 Пришли фото для «{target['label']}»\n\n"
-        f"⚠️ Требования:\n"
-        f"• Формат: JPG или PNG\n"
-        f"• Размер: до 5 МБ\n"
-        f"• Отправь **как фото** (не как файл)"
+        f"⚠️ <b>Требования:</b>\n"
+        f"• Формат: JPG, PNG, WEBP\n"
+        f"• Размер: до 5 МБ\n\n"
+        f"💡 <b>Как отправить:</b>\n"
+        f"• <b>Как фото</b> — Telegram сожмёт (быстрее)\n"
+        f"• <b>Как файл</b> — без сжатия (качество сохранится)\n\n"
+        f"Чтобы отправить <b>как файл</b>: 📎 → Файл → выбери фото",
+        parse_mode="HTML"
     )
 
 
-# ===== Обработка полученного фото =====
+# ===== Обработка полученного ФАЙЛА (без сжатия) =====
 
-@router.message(UploadFlow.waiting_photo, F.photo)
-async def handle_photo(message: types.Message, state: FSMContext):
+@router.message(UploadFlow.waiting_photo, F.document)
+async def handle_document(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         await message.answer("⛔ У тебя нет прав.")
         await state.clear()
@@ -137,21 +141,32 @@ async def handle_photo(message: types.Message, state: FSMContext):
         await state.clear()
         return
 
-    # Берём самую большую версию фото
-    photo = message.photo[-1]
+    doc = message.document
 
-    if photo.file_size > MAX_FILE_SIZE:
+    # Проверяем расширение
+    filename = doc.file_name or ""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+
+    if ext not in ("jpg", "jpeg", "png", "webp"):
         await message.answer(
-            f"❌ Файл слишком большой ({photo.file_size // 1024 // 1024} МБ). "
+            "⚠️ Поддерживаются только форматы: JPG, JPEG, PNG, WEBP.\n"
+            "Отправь файл с правильным расширением."
+        )
+        return
+
+    # Проверяем размер
+    if doc.file_size > MAX_FILE_SIZE:
+        await message.answer(
+            f"❌ Файл слишком большой ({doc.file_size // 1024 // 1024} МБ). "
             f"Максимум 5 МБ."
         )
         return
 
-    await message.answer("⏳ Загружаю фото на GitHub...")
+    await message.answer("⏳ Загружаю файл на GitHub (без сжатия)...")
 
     try:
-        # Скачиваем фото из Telegram
-        file = await message.bot.get_file(photo.file_id)
+        # Скачиваем файл из Telegram
+        file = await message.bot.get_file(doc.file_id)
         file_bytes = await message.bot.download_file(file.file_path)
 
         # Загружаем на GitHub
@@ -166,7 +181,7 @@ async def handle_photo(message: types.Message, state: FSMContext):
             await github_api.update_field(target["field"], target["value"])
 
         await message.answer(
-            f"✅ Фото загружено!\n\n"
+            f"✅ Файл загружен без сжатия!\n\n"
             f"📸 {target['label']}\n\n"
             f"🌐 Сайт обновится через 30-60 секунд:\n"
             f"https://salon-booking-bht.pages.dev"
@@ -175,13 +190,3 @@ async def handle_photo(message: types.Message, state: FSMContext):
         await message.answer(f"❌ Ошибка загрузки: {e}")
 
     await state.clear()
-
-
-# ===== Обработка случая, когда прислали не фото =====
-
-@router.message(UploadFlow.waiting_photo)
-async def handle_not_photo(message: types.Message):
-    await message.answer(
-        "⚠️ Нужно прислать именно **фото** (не файл, не текст).\n"
-        "Попробуй ещё раз."
-    )
