@@ -5,6 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from app.database import requests as rq
 from app.handlers.booking import today_salon
+from datetime import timedelta
 
 router = Router()
 
@@ -223,4 +224,58 @@ async def cmd_bookings_today(message: types.Message):
         text += f"📅 {b.date}\n\n"
 
     text += f"<b>Всего: {len(bookings)}</b>"
+    await message.answer(text, parse_mode="HTML")
+
+@router.message(Command("bookings_week"))
+async def cmd_bookings_week(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ У тебя нет прав для этой команды.")
+        return
+
+    # Период: с сегодня по +6 дней (итого 7 дней)
+    today = today_salon()
+    end_date = today + timedelta(days=6)
+
+    bookings = await rq.get_bookings_for_period(
+        today.isoformat(),
+        end_date.isoformat(),
+    )
+
+    if not bookings:
+        await message.answer(
+            f"📭 Записей с {today.strftime('%d.%m')} "
+            f"по {end_date.strftime('%d.%m')} нет."
+        )
+        return
+
+    services = await rq.get_all_services(only_active=False)
+    services_map = {s.id: s for s in services}
+
+    # Группируем по дате
+    text = f"📋 <b>Записи с {today.strftime('%d.%m')} по {end_date.strftime('%d.%m')}</b>\n\n"
+
+    current_date = None
+    for b in bookings:
+        # Заголовок для новой даты
+        if b.date != current_date:
+            current_date = b.date
+            # Форматируем дату красиво
+            from datetime import datetime as dt
+            date_obj = dt.fromisoformat(b.date).date()
+            weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+            weekday = weekdays[date_obj.weekday()]
+            text += f"\n📅 <b>{b.date} ({weekday})</b>\n"
+
+        user = await rq.get_user_by_id(b.user_id)
+        service = services_map.get(b.service_id)
+        service_name = service.name if service else "услуга удалена"
+
+        text += f"  🕐 {b.time} — {service_name}\n"
+        if user:
+            text += f"  👤 {user.first_name}"
+            if user.username:
+                text += f" (@{user.username})"
+            text += f"\n  🆔 <code>{user.telegram_id}</code>\n"
+
+    text += f"\n<b>Всего: {len(bookings)}</b>"
     await message.answer(text, parse_mode="HTML")

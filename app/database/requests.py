@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy import func
 from app.database.engine import async_session
 from app.database.models import Service, User, Booking, BlockedUser
 
@@ -198,5 +199,117 @@ async def get_user_by_id(user_id: int) -> User | None:
     async with async_session() as session:
         result = await session.execute(
             select(User).where(User.id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+async def get_bookings_for_period(start_date: str, end_date: str) -> list[Booking]:
+    """Возвращает активные записи за период [start_date, end_date]."""
+    async with async_session() as session:
+        query = (
+            select(Booking)
+            .where(
+                Booking.date >= start_date,
+                Booking.date <= end_date,
+                Booking.status != "cancelled",
+            )
+            .order_by(Booking.date, Booking.time)
+        )
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+# ===== Информация о клиенте =====
+
+async def get_user_bookings_count(user_id: int) -> int:
+    """Возвращает количество всех записей пользователя."""
+    async with async_session() as session:
+        from sqlalchemy import func
+        result = await session.execute(
+            select(func.count(Booking.id)).where(Booking.user_id == user_id)
+        )
+        return result.scalar_one()
+
+
+async def get_user_active_bookings_count(user_id: int) -> int:
+    """Возвращает количество активных записей."""
+    async with async_session() as session:
+        from sqlalchemy import func
+        result = await session.execute(
+            select(func.count(Booking.id)).where(
+                Booking.user_id == user_id,
+                Booking.status != "cancelled",
+            )
+        )
+        return result.scalar_one()
+
+
+# ===== Статистика =====
+
+async def get_stats_for_period(start_date: str, end_date: str) -> dict:
+    """Возвращает статистику за период."""
+    async with async_session() as session:
+
+        # Всего записей (включая отменённые)
+        total = await session.execute(
+            select(func.count(Booking.id)).where(
+                Booking.date >= start_date,
+                Booking.date <= end_date,
+            )
+        )
+        total_count = total.scalar_one()
+
+        # Активных (не отменённых)
+        active = await session.execute(
+            select(func.count(Booking.id)).where(
+                Booking.date >= start_date,
+                Booking.date <= end_date,
+                Booking.status != "cancelled",
+            )
+        )
+        active_count = active.scalar_one()
+
+        # Отменённых
+        cancelled = total_count - active_count
+
+        # Популярные услуги (топ-5)
+        popular = await session.execute(
+            select(
+                Service.name,
+                func.count(Booking.id).label("cnt")
+            )
+            .join(Booking, Booking.service_id == Service.id)
+            .where(
+                Booking.date >= start_date,
+                Booking.date <= end_date,
+                Booking.status != "cancelled",
+            )
+            .group_by(Service.name)
+            .order_by(func.count(Booking.id).desc())
+            .limit(5)
+        )
+        popular_list = [(row[0], row[1]) for row in popular.all()]
+
+        # Уникальных клиентов
+        unique_users = await session.execute(
+            select(func.count(func.distinct(Booking.user_id))).where(
+                Booking.date >= start_date,
+                Booking.date <= end_date,
+                Booking.status != "cancelled",
+            )
+        )
+        unique_users_count = unique_users.scalar_one()
+
+        return {
+            "total": total_count,
+            "active": active_count,
+            "cancelled": cancelled,
+            "unique_users": unique_users_count,
+            "popular": popular_list,
+        }
+
+async def get_user_by_telegram_id(telegram_id: int) -> User | None:
+    """Возвращает пользователя по telegram_id."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(User).where(User.telegram_id == telegram_id)
         )
         return result.scalar_one_or_none()
