@@ -16,7 +16,7 @@ def is_admin(user_id: int) -> bool:
 ADMIN_HELP = """
 📚 <b>Все команды бота</b>
 
-<b>📋 Работа с услугами</b>
+<b>📋 Услуги</b>
 /add_service — добавить услугу
 /list_services — список услуг
 /del_service &lt;id&gt; — удалить услугу
@@ -34,12 +34,23 @@ ADMIN_HELP = """
 /upload_logo — логотип
 /upload_service1 ... /upload_service9 — фото услуг
 
+<b>📊 Записи</b>
+/bookings_today — записи на сегодня
+/bookings_week — записи за 7 дней
+/stats — статистика за 30 дней
+
+<b>👤 Клиенты</b>
+/user &lt;id&gt; — информация о клиенте
+/history &lt;id&gt; — история записей клиента
+/block &lt;id&gt; — заблокировать клиента
+/unblock &lt;id&gt; — разблокировать
+/blocked — список заблокированных
+
 <b>ℹ️ Прочее</b>
 /help — эта справка
 
 💡 <i>Все изменения сайта появляются на нём через 30-60 секунд.</i>
 """
-
 
 # ===== Справка для клиента =====
 
@@ -58,7 +69,6 @@ CLIENT_HELP = """
 ❓ <b>Вопросы</b>
 Если что-то непонятно — обратись к администратору.
 """
-
 
 @router.message(Command("help"))
 async def cmd_help(message: types.Message):
