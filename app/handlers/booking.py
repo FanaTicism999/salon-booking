@@ -28,6 +28,7 @@ def today_salon():
 class BookingFlow(StatesGroup):
     choosing_date = State()
     choosing_time = State()
+    waiting_phone = State()
 
 
 # ===== Слоты времени (по 1 часу с 10:00 до 18:00) =====
@@ -39,7 +40,7 @@ ALL_TIMES = [f"{h:02d}:00" for h in range(10, 19)]
 
 def dates_keyboard(service_id: int):
     builder = InlineKeyboardBuilder()
-    today = today_salon()  # ← используем время салона
+    today = today_salon()
     weekdays_ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
     for i in range(7):
@@ -66,19 +67,14 @@ async def times_keyboard(service_id: int, date_str: str):
     builder = InlineKeyboardBuilder()
     free_count = 0
 
-    # Проверяем, сегодня ли выбранная дата (по времени салона)
     today = today_salon()
     is_today = date_str == today.isoformat()
-
-    # Текущее время + 2 часа — минимальное доступное время
     now_plus_2h = now_salon() + timedelta(hours=2)
 
     for t in ALL_TIMES:
-        # Пропускаем занятые
         if t in booked:
             continue
 
-        # Если сегодня — проверяем, не прошло ли время
         if is_today:
             hour, minute = map(int, t.split(":"))
             slot_time = datetime.combine(
@@ -143,7 +139,7 @@ async def cb_choose_date(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-# ===== Шаг 3: клиент выбрал время — сохраняем запись =====
+# ===== Шаг 3: клиент выбрал время — проверяем телефон =====
 
 @router.callback_query(F.data.startswith("time_"), BookingFlow.choosing_time)
 async def cb_choose_time(callback: types.CallbackQuery, state: FSMContext):
@@ -188,23 +184,103 @@ async def cb_choose_time(callback: types.CallbackQuery, state: FSMContext):
         username=callback.from_user.username,
     )
 
+    # Если телефон уже есть — создаём запись сразу
+    if user.phone:
+        await rq.create_booking(
+            user_id=user.id,
+            service_id=service_id,
+            date=date_str,
+            time=time_str,
+            phone=user.phone,
+        )
+        await state.clear()
+        await callback.message.answer(
+            f"✅ Ты записан!\n\n"
+            f"📝 Услуга: {data['service_name']}\n"
+            f"📅 Дата: {date_str}\n"
+            f"⏰ Время: {time_str}\n"
+            f"📱 Телефон: {user.phone}\n\n"
+            f"Посмотреть свои записи: /my_bookings"
+        )
+        await callback.answer()
+        return
+
+    # Иначе — сохраняем данные и просим телефон
+    await state.update_data(
+        service_id=service_id,
+        date_str=date_str,
+        time_str=time_str,
+    )
+    await state.set_state(BookingFlow.waiting_phone)
+
+    await callback.message.answer(
+        "📱 Укажи свой номер телефона:\n\n"
+        "Формат: <b>+7XXXXXXXXXX</b>\n"
+        "Например: +79171234567",
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+# ===== Шаг 4: обработка ввода телефона =====
+
+@router.message(BookingFlow.waiting_phone)
+async def handle_phone(message: types.Message, state: FSMContext):
+    phone_raw = (message.text or "").strip()
+
+    # Оставляем только цифры и +
+    digits = "".join(c for c in phone_raw if c.isdigit() or c == "+")
+
+    # Нормализация: 89171234567 → +79171234567
+    if digits.startswith("8") and len(digits) == 11:
+        digits = "+7" + digits[1:]
+    elif digits.startswith("7") and len(digits) == 11:
+        digits = "+" + digits
+    elif digits.startswith("+7") and len(digits) == 12:
+        pass
+    else:
+        await message.answer(
+            "⚠️ Неверный формат. Нужно 11 цифр, начиная с +7.\n"
+            "Пример: +79171234567"
+        )
+        return
+
+    # Получаем пользователя
+    user = await rq.get_or_create_user(
+        telegram_id=message.from_user.id,
+        first_name=message.from_user.first_name,
+        username=message.from_user.username,
+    )
+
+    # Сохраняем телефон в профиль
+    await rq.update_user_phone(user.id, digits)
+
+    # Достаём сохранённые данные
+    data = await state.get_data()
+    service_id = data.get("service_id")
+    date_str = data.get("date_str")
+    time_str = data.get("time_str")
+    service_name = data.get("service_name", "услуга")
+
+    # Создаём запись
     await rq.create_booking(
         user_id=user.id,
         service_id=service_id,
         date=date_str,
         time=time_str,
+        phone=digits,
     )
 
     await state.clear()
 
-    await callback.message.answer(
+    await message.answer(
         f"✅ Ты записан!\n\n"
-        f"📝 Услуга: {data['service_name']}\n"
+        f"📝 Услуга: {service_name}\n"
         f"📅 Дата: {date_str}\n"
-        f"⏰ Время: {time_str}\n\n"
+        f"⏰ Время: {time_str}\n"
+        f"📱 Телефон: {digits}\n\n"
         f"Посмотреть свои записи: /my_bookings"
     )
-    await callback.answer()
 
 
 # ===== Отмена процесса записи =====
