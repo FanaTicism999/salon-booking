@@ -44,7 +44,7 @@ def main_menu():
 
 @dp.message_created(CommandStart())
 async def cmd_start(event: MessageCreated):
-    user_id = event.message.sender.user_id
+    user_id = event.from_user.user_id
 
     # Проверка блокировки
     if await rq.is_blocked(user_id):
@@ -54,7 +54,7 @@ async def cmd_start(event: MessageCreated):
         return
 
     # Создаём/получаем пользователя
-    sender = event.message.sender
+    sender = event.from_user
     await rq.get_or_create_user(
         telegram_id=user_id,
         first_name=sender.first_name or sender.name or "клиент",
@@ -99,7 +99,7 @@ async def cb_about(event: MessageCallback):
 
 @dp.message_callback(F.callback.payload == "menu_book")
 async def cb_book(event: MessageCallback):
-    user_id = event.message.sender.user_id
+    user_id = event.from_user.user_id
 
     if await rq.is_blocked(user_id):
         await event.message.answer("⛔ Вы заблокированы и не можете записаться.")
@@ -250,7 +250,7 @@ async def cb_time(event: MessageCallback):
     date_str = parts[2]
     time_str = parts[3]
 
-    user_id = event.message.sender.user_id
+    user_id = event.from_user.user_id
 
     if await rq.is_blocked(user_id):
         await event.message.answer("⛔ Вы заблокированы.")
@@ -266,7 +266,7 @@ async def cb_time(event: MessageCallback):
         await event.answer()
         return
 
-    sender = event.message.sender
+    sender = event.from_user
     user = await rq.get_or_create_user(
         telegram_id=user_id,
         first_name=sender.first_name or sender.name or "клиент",
@@ -298,9 +298,9 @@ async def cb_time(event: MessageCallback):
 
 @dp.message_callback(F.callback.payload == "menu_my_bookings")
 async def cb_my_bookings(event: MessageCallback):
-    user_id = event.message.sender.user_id
+    user_id = event.from_user.user_id
 
-    sender = event.message.sender
+    sender = event.from_user
     user = await rq.get_or_create_user(
         telegram_id=user_id,
         first_name=sender.first_name or sender.name or "клиент",
@@ -357,8 +357,8 @@ async def cb_cancel(event: MessageCallback):
         await event.answer()
         return
 
-    user_id = event.message.sender.user_id
-    sender = event.message.sender
+    user_id = event.from_user.user_id
+    sender = event.from_user
     user = await rq.get_or_create_user(
         telegram_id=user_id,
         first_name=sender.first_name or sender.name or "клиент",
