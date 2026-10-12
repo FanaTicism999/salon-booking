@@ -98,15 +98,25 @@ function renderSocials(socials) {
 
 // ===== 5. Настройка кнопок =====
 function setupButtons(data) {
-    const bookingLinks = document.querySelectorAll('a[href="#booking"], #booking-btn');
-
-    bookingLinks.forEach(link => {
-        if (link.id === 'booking-btn') {
-            link.href = data.telegram_bot;
-        } else {
-            link.href = '#booking';
-        }
+    // Кнопки-ссылки на секцию CTA (в шапке и hero)
+    const scrollLinks = document.querySelectorAll('a[href="#booking"]:not(#booking-btn):not(#booking-btn-max)');
+    scrollLinks.forEach(link => {
+        link.href = '#booking';
     });
+
+    // Кнопка Telegram
+    const tgBtn = document.getElementById('booking-btn');
+    if (tgBtn && data.telegram_bot) {
+        tgBtn.href = data.telegram_bot;
+    }
+
+    // Кнопка MAX
+    const maxBtn = document.getElementById('booking-btn-max');
+    if (maxBtn && data.max_bot) {
+        maxBtn.href = data.max_bot;
+    } else if (maxBtn) {
+        maxBtn.style.display = 'none';  // скрыть, если ссылки нет
+    }
 }
 
 // ===== 6. Запуск =====

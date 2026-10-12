@@ -514,3 +514,39 @@ a.contact-card__value:hover {
         margin-top: 32px;
     }
     }
+
+/* ===== Две кнопки в CTA ===== */
+.cta__buttons {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.cta .btn--large {
+    background: #fff;
+    color: var(--accent);
+}
+
+.cta .btn--large:hover {
+    background: #f5f5ff;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+}
+
+/* Кнопка MAX — с другим цветом */
+.cta .btn--max {
+    background: #fff;
+    color: #3B82F6;  /* синий MAX */
+}
+
+.cta .btn--max:hover {
+    background: #eff6ff;
+}
+
+/* На мобильных — кнопки в столбик */
+@media (max-width: 768px) {
+    .cta__buttons {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

@@ -1,82 +1,38 @@
 {
   "salon_name": "Everyday Beauty",
-  "hero_title": "Добро пожаловать в Burmalda Studio",
+  "hero_title": "Добро пожаловать в Everyday Beauty",
   "hero_subtitle": "Профессиональные услуги красоты для вашего настроения и уверенности",
   "hero_image": "images/hero.jpg",
-  "phone": "+7 (917) 123-45-67",
+  "phone": "+7 (917) 807-49-43",
   "address": "Уфа, ул. Чернышевского 145",
   "telegram_bot": "https://t.me/my_salon_everyday_booking_bot",
+  "max_bot": "https://max.ru/se14396837_bot",
   "socials": [
     {
       "name": "Telegram",
       "icon": "✈️",
-      "url": "https://t.me/my_salon_everyday_booking_bot"
+      "url": "https://t.me/everyday_beauty_salon"
     },
     {
       "name": "VK",
       "icon": "🔵",
-      "url": "https://vk.com/your_salon"
+      "url": "https://vk.ru/everyday_beauty_salon"
     },
     {
       "name": "WhatsApp",
       "icon": "💬",
-      "url": "https://wa.me/79991234567"
+      "url": "https://wa.me/79178074943"
     }
   ],
   "services": [
-    {
-      "name": "Стрижка женская",
-      "price": 2500,
-      "duration": 90,
-      "image": "images/service-1.jpg"
-    },
-    {
-      "name": "Стрижка мужская",
-      "price": 1500,
-      "duration": 60,
-      "image": "images/service-2.jpg"
-    },
-    {
-      "name": "Окрашивание",
-      "price": 5000,
-      "duration": 180,
-      "image": "images/service-3.jpg"
-    },
-    {
-      "name": "Маникюр",
-      "price": 2000,
-      "duration": 90,
-      "image": "images/service-4.jpg"
-    },
-    {
-      "name": "Педикюр",
-      "price": 2500,
-      "duration": 120,
-      "image": "images/service-5.jpg"
-    },
-    {
-      "name": "Массаж лица",
-      "price": 3000,
-      "duration": 60,
-      "image": "images/service-6.jpg"
-    },
-    {
-      "name": "Эпиляция",
-      "price": 3000,
-      "duration": 60,
-      "image": "images/service-7.jpg"
-    },
-    {
-      "name": "Коррекция бровей",
-      "price": 1000,
-      "duration": 30,
-      "image": "images/service-8.jpg"
-    },
-    {
-      "name": "Наращивание ресниц",
-      "price": 4000,
-      "duration": 120,
-      "image": "images/service-9.jpg"
-    }
+    { "name": "Стрижка женская", "price": 2500, "duration": 90, "image": "images/service-1.jpg" },
+    { "name": "Стрижка мужская", "price": 1500, "duration": 60, "image": "images/service-2.jpg" },
+    { "name": "Окрашивание", "price": 5000, "duration": 180, "image": "images/service-3.jpg" },
+    { "name": "Маникюр", "price": 2000, "duration": 90, "image": "images/service-4.jpg" },
+    { "name": "Педикюр", "price": 2500, "duration": 120, "image": "images/service-5.jpg" },
+    { "name": "Массаж лица", "price": 3000, "duration": 60, "image": "images/service-6.jpg" },
+    { "name": "Эпиляция", "price": 3000, "duration": 60, "image": "images/service-7.jpg" },
+    { "name": "Коррекция бровей", "price": 1000, "duration": 30, "image": "images/service-8.jpg" },
+    { "name": "Наращивание ресниц", "price": 4000, "duration": 120, "image": "images/service-9.jpg" }
   ]
 }
