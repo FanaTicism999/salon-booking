@@ -13,6 +13,7 @@ from maxapi.types import (
 )
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 from maxapi.enums.format import Format
+from maxapi.context import MemoryContext, State, StatesGroup
 
 from app.database.engine import init_db
 from app.database import requests as rq
@@ -24,6 +25,13 @@ logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=os.getenv("MAX_BOT_TOKEN"))
 dp = Dispatcher()
+
+
+# ===== Состояния для FSM =====
+
+class BookingForm(StatesGroup):
+    waiting_phone = State()
+
 
 # ===== Главное меню =====
 
@@ -40,11 +48,12 @@ def main_menu():
     )
     return builder.as_markup()
 
+
 # ===== /start =====
 
 @dp.message_created(CommandStart())
 async def cmd_start(event: MessageCreated):
-    user_id = event.from_user.user_id
+    user_id = event.message.sender.user_id
 
     # Проверка блокировки
     if await rq.is_blocked(user_id):
@@ -53,8 +62,7 @@ async def cmd_start(event: MessageCreated):
         )
         return
 
-    # Создаём/получаем пользователя
-    sender = event.from_user
+    sender = event.message.sender
     await rq.get_or_create_user(
         telegram_id=user_id,
         first_name=sender.first_name or sender.name or "клиент",
@@ -67,6 +75,7 @@ async def cmd_start(event: MessageCreated):
         f"Выбери, что тебя интересует:",
         attachments=[main_menu()],
     )
+
 
 # ===== «О нас» =====
 
@@ -94,6 +103,7 @@ async def cb_about(event: MessageCallback):
         print(f"Ошибка в about: {e}")
 
     await event.answer()
+
 
 # ===== «Записаться» — список услуг =====
 
@@ -128,6 +138,7 @@ async def cb_book(event: MessageCallback):
     )
     await event.answer()
 
+
 # ===== Назад в главное меню =====
 
 @dp.message_callback(F.callback.payload == "menu_back")
@@ -137,6 +148,7 @@ async def cb_back(event: MessageCallback):
         attachments=[main_menu()],
     )
     await event.answer()
+
 
 # ===== Выбор услуги — показываем даты =====
 
@@ -177,6 +189,7 @@ async def cb_service(event: MessageCallback):
         attachments=[builder.as_markup()],
     )
     await event.answer()
+
 
 # ===== Выбор даты — показываем время =====
 
@@ -241,16 +254,20 @@ async def cb_date(event: MessageCallback):
     )
     await event.answer()
 
-# ===== Выбор времени — сохраняем запись =====
+
+# ===== Выбор времени — проверяем телефон =====
 
 @dp.message_callback(F.callback.payload.startswith("time_"))
-async def cb_time(event: MessageCallback):
+async def cb_time(event: MessageCallback, context: MemoryContext):
     parts = event.callback.payload.split("_")
     service_id = int(parts[1])
     date_str = parts[2]
     time_str = parts[3]
 
-    user_id = event.from_user.user_id
+    user_info = event.from_user
+    user_id = user_info.user_id
+    first_name = user_info.first_name or user_info.name or "клиент"
+    username = user_info.username
 
     if await rq.is_blocked(user_id):
         await event.message.answer("⛔ Вы заблокированы.")
@@ -266,18 +283,88 @@ async def cb_time(event: MessageCallback):
         await event.answer()
         return
 
-    sender = event.from_user
     user = await rq.get_or_create_user(
         telegram_id=user_id,
-        first_name=sender.first_name or sender.name or "клиент",
-        username=sender.username,
+        first_name=first_name,
+        username=username,
     )
 
+    # Если телефон уже есть — сразу создаём запись
+    if user.phone:
+        await _save_booking(event, user, service_id, date_str, time_str, user.phone)
+        await event.answer()
+        return
+
+    # Иначе — сохраняем в контекст и просим телефон
+    await context.update_data(
+        service_id=service_id,
+        date_str=date_str,
+        time_str=time_str,
+    )
+    await context.set_state(BookingForm.waiting_phone)
+
+    await event.message.answer(
+        "📱 Укажи свой номер телефона:\n\n"
+        "Формат: <b>+7XXXXXXXXXX</b>\n"
+        "Например: +79171234567",
+        format=Format.HTML,
+    )
+    await event.answer()
+
+
+# ===== Обработка ввода телефона =====
+
+@dp.message_created(BookingForm.waiting_phone)
+async def handle_phone(event: MessageCreated, context: MemoryContext):
+    phone_raw = (event.message.body.text or "").strip()
+
+    digits = "".join(c for c in phone_raw if c.isdigit() or c == "+")
+
+    # Нормализация
+    if digits.startswith("8") and len(digits) == 11:
+        digits = "+7" + digits[1:]
+    elif digits.startswith("7") and len(digits) == 11:
+        digits = "+" + digits
+    elif digits.startswith("+7") and len(digits) == 12:
+        pass
+    else:
+        await event.message.answer(
+            "⚠️ Неверный формат. Нужно 11 цифр, начиная с +7.\n"
+            "Пример: +79171234567"
+        )
+        return
+
+    user_info = event.from_user
+    user_id = user_info.user_id
+    first_name = user_info.first_name or user_info.name or "клиент"
+    username = user_info.username
+
+    user = await rq.get_or_create_user(
+        telegram_id=user_id,
+        first_name=first_name,
+        username=username,
+    )
+    await rq.update_user_phone(user.id, digits)
+
+    data = await context.get_data()
+    service_id = data.get("service_id")
+    date_str = data.get("date_str")
+    time_str = data.get("time_str")
+
+    await context.clear()
+
+    await _save_booking(event, user, service_id, date_str, time_str, digits)
+
+
+# ===== Вспомогательная: создать запись + ответить =====
+
+async def _save_booking(event, user, service_id, date_str, time_str, phone):
     await rq.create_booking(
         user_id=user.id,
         service_id=service_id,
         date=date_str,
         time=time_str,
+        phone=phone,
     )
 
     services = await rq.get_all_services(only_active=False)
@@ -288,23 +375,24 @@ async def cb_time(event: MessageCallback):
         f"✅ Ты записан!\n\n"
         f"📝 Услуга: {service_name}\n"
         f"📅 Дата: {date_str}\n"
-        f"⏰ Время: {time_str}\n\n"
+        f"⏰ Время: {time_str}\n"
+        f"📱 Телефон: {phone}\n\n"
         f"Посмотреть записи — «📋 Мои записи».",
         attachments=[main_menu()],
     )
-    await event.answer()
+
 
 # ===== «Мои записи» =====
 
 @dp.message_callback(F.callback.payload == "menu_my_bookings")
 async def cb_my_bookings(event: MessageCallback):
-    user_id = event.from_user.user_id
+    user_info = event.from_user
+    user_id = user_info.user_id
 
-    sender = event.from_user
     user = await rq.get_or_create_user(
         telegram_id=user_id,
-        first_name=sender.first_name or sender.name or "клиент",
-        username=sender.username,
+        first_name=user_info.first_name or user_info.name or "клиент",
+        username=user_info.username,
     )
 
     bookings = await rq.get_user_bookings(user.id)
@@ -345,6 +433,7 @@ async def cb_my_bookings(event: MessageCallback):
     )
     await event.answer()
 
+
 # ===== Отмена записи =====
 
 @dp.message_callback(F.callback.payload.startswith("cancel_"))
@@ -357,12 +446,12 @@ async def cb_cancel(event: MessageCallback):
         await event.answer()
         return
 
-    user_id = event.from_user.user_id
-    sender = event.from_user
+    user_info = event.from_user
+    user_id = user_info.user_id
     user = await rq.get_or_create_user(
         telegram_id=user_id,
-        first_name=sender.first_name or sender.name or "клиент",
-        username=sender.username,
+        first_name=user_info.first_name or user_info.name or "клиент",
+        username=user_info.username,
     )
 
     if booking.user_id != user.id:
@@ -378,14 +467,25 @@ async def cb_cancel(event: MessageCallback):
     )
     await event.answer()
 
+
 # ===== Эхо (для отладки) =====
 
 @dp.message_created(F.message.body.text)
 async def echo(event: MessageCreated):
     await event.message.answer(f"Эхо: {event.message.body.text}")
 
-async def main():
+
+# ===== Запуск =====
+
+# Этот блок НЕ используется, когда client_max запускается из main.py.
+# Оставлен для возможности локального запуска max-бота отдельно.
+
+async def _run_standalone():
+    from app.database.engine import init_db
+    await init_db()
+    print("Max-бот запущен (standalone)!")
     await dp.start_polling(bot)
 
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(_run_standalone())

@@ -10,8 +10,9 @@ load_dotenv()
 
 from app.database.engine import init_db
 from app.handlers import admin, client, booking, editor, uploads, help_cmd
-# Max-бот
-from app.max_handlers import client_max
+
+# Max-бот — импортируем модуль, используем его bot и dp
+from app.max_handlers import client_max as max_client
 
 
 # ===== Telegram-бот =====
@@ -21,7 +22,7 @@ tg_bot = Bot(token=BOT_TOKEN)
 tg_dp = Dispatcher()
 
 
-# ===== Заглушка для Render (health check) =====
+# ===== Health check для Render =====
 
 async def health_check(request):
     return web.Response(text="OK")
@@ -38,7 +39,7 @@ async def run_fake_server():
     print(f"Health check server started on port {port}")
 
 
-# ===== Запуск Telegram =====
+# ===== Запуск Telegram-бота =====
 
 async def run_telegram():
     tg_dp.include_router(admin.router)
@@ -52,11 +53,11 @@ async def run_telegram():
     await tg_dp.start_polling(tg_bot)
 
 
-# ===== Запуск Max =====
+# ===== Запуск Max-бота =====
 
 async def run_max():
     print("Max-бот запущен!")
-    await client_max.dp.start_polling(client_max.bot)
+    await max_client.dp.start_polling(max_client.bot)
 
 
 # ===== Главная =====
