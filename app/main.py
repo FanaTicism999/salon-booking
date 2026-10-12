@@ -1,20 +1,27 @@
 import asyncio
 import os
 from dotenv import load_dotenv
+
 from aiogram import Bot, Dispatcher
 from aiohttp import web
 
+# Загружаем .env ДО импорта модулей app.*
+load_dotenv()
+
 from app.database.engine import init_db
 from app.handlers import admin, client, booking, editor, uploads, help_cmd
+# Max-бот
+from app.max_handlers import client_max
 
-load_dotenv()
+
+# ===== Telegram-бот =====
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+tg_bot = Bot(token=BOT_TOKEN)
+tg_dp = Dispatcher()
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
 
-
-# ===== Заглушка для Render (чтобы он видел открытый порт) =====
+# ===== Заглушка для Render (health check) =====
 
 async def health_check(request):
     return web.Response(text="OK")
@@ -31,7 +38,28 @@ async def run_fake_server():
     print(f"Health check server started on port {port}")
 
 
-# ===== Запуск бота =====
+# ===== Запуск Telegram =====
+
+async def run_telegram():
+    tg_dp.include_router(admin.router)
+    tg_dp.include_router(editor.router)
+    tg_dp.include_router(uploads.router)
+    tg_dp.include_router(help_cmd.router)
+    tg_dp.include_router(booking.router)
+    tg_dp.include_router(client.router)
+
+    print("Telegram-бот запущен!")
+    await tg_dp.start_polling(tg_bot)
+
+
+# ===== Запуск Max =====
+
+async def run_max():
+    print("Max-бот запущен!")
+    await client_max.dp.start_polling(client_max.bot)
+
+
+# ===== Главная =====
 
 async def main():
     await init_db()
@@ -39,16 +67,11 @@ async def main():
 
     await run_fake_server()
 
-    # Подключаем роутеры (ВНУТРИ main!)
-    dp.include_router(admin.router)
-    dp.include_router(editor.router)
-    dp.include_router(uploads.router)
-    dp.include_router(help_cmd.router)
-    dp.include_router(booking.router)      # booking ДО client
-    dp.include_router(client.router)
-
-    print("Бот запущен!")
-    await dp.start_polling(bot)
+    # Запускаем оба бота параллельно
+    await asyncio.gather(
+        run_telegram(),
+        run_max(),
+    )
 
 
 if __name__ == "__main__":
