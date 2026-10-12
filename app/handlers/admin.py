@@ -117,6 +117,7 @@ async def cmd_del_service(message: types.Message):
     else:
         await message.answer(f"❌ Услуга с ID {parts[1]} не найдена.")
 
+
 # ===== Блокировка клиентов =====
 
 @router.message(Command("block"))
@@ -190,7 +191,6 @@ async def cmd_blocked(message: types.Message):
 
 # ===== Записи на сегодня =====
 
-
 @router.message(Command("bookings_today"))
 async def cmd_bookings_today(message: types.Message):
     if not is_admin(message.from_user.id):
@@ -210,7 +210,6 @@ async def cmd_bookings_today(message: types.Message):
     text = f"📋 <b>Записи на сегодня ({today})</b>\n\n"
 
     for b in bookings:
-        # Получаем пользователя
         user = await rq.get_user_by_id(b.user_id)
         service = services_map.get(b.service_id)
         service_name = service.name if service else "услуга удалена"
@@ -221,10 +220,19 @@ async def cmd_bookings_today(message: types.Message):
             if user.username:
                 text += f" (@{user.username})"
             text += f"\n🆔 <code>{user.telegram_id}</code>\n"
+
+        # Телефон: сначала из записи, потом из пользователя
+        phone = b.phone or (user.phone if user else None)
+        if phone:
+            text += f"📱 {phone}\n"
+
         text += f"📅 {b.date}\n\n"
 
     text += f"<b>Всего: {len(bookings)}</b>"
     await message.answer(text, parse_mode="HTML")
+
+
+# ===== Записи на неделю =====
 
 @router.message(Command("bookings_week"))
 async def cmd_bookings_week(message: types.Message):
@@ -232,7 +240,6 @@ async def cmd_bookings_week(message: types.Message):
         await message.answer("⛔ У тебя нет прав для этой команды.")
         return
 
-    # Период: с сегодня по +6 дней (итого 7 дней)
     today = today_salon()
     end_date = today + timedelta(days=6)
 
@@ -251,15 +258,12 @@ async def cmd_bookings_week(message: types.Message):
     services = await rq.get_all_services(only_active=False)
     services_map = {s.id: s for s in services}
 
-    # Группируем по дате
     text = f"📋 <b>Записи с {today.strftime('%d.%m')} по {end_date.strftime('%d.%m')}</b>\n\n"
 
     current_date = None
     for b in bookings:
-        # Заголовок для новой даты
         if b.date != current_date:
             current_date = b.date
-            # Форматируем дату красиво
             from datetime import datetime as dt
             date_obj = dt.fromisoformat(b.date).date()
             weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
@@ -277,8 +281,13 @@ async def cmd_bookings_week(message: types.Message):
                 text += f" (@{user.username})"
             text += f"\n  🆔 <code>{user.telegram_id}</code>\n"
 
+        phone = b.phone or (user.phone if user else None)
+        if phone:
+            text += f"  📱 {phone}\n"
+
     text += f"\n<b>Всего: {len(bookings)}</b>"
     await message.answer(text, parse_mode="HTML")
+
 
 # ===== Информация о клиенте =====
 
@@ -317,6 +326,9 @@ async def cmd_user(message: types.Message):
     )
     if user.username:
         text += f"💬 Username: @{user.username}\n"
+    if user.phone:
+        text += f"📱 Телефон: {user.phone}\n"
+
     text += (
         f"📅 Создан: {user.created_at.strftime('%d.%m.%Y %H:%M')}\n"
         f"📊 Всего записей: {total}\n"
@@ -362,14 +374,21 @@ async def cmd_history(message: types.Message):
     services_map = {s.id: s for s in services}
 
     text = f"📋 <b>История записей: {user.first_name}</b>\n"
-    text += f"🆔 <code>{user.telegram_id}</code>\n\n"
+    text += f"🆔 <code>{user.telegram_id}</code>\n"
+    if user.phone:
+        text += f"📱 {user.phone}\n"
+    text += "\n"
 
-    # Показываем последние 15 записей
     for b in bookings[-15:]:
         service = services_map.get(b.service_id)
         service_name = service.name if service else "услуга удалена"
         status_emoji = "✅" if b.status != "cancelled" else "❌"
-        text += f"{status_emoji} {b.date} {b.time} — {service_name}\n"
+
+        line = f"{status_emoji} {b.date} {b.time} — {service_name}"
+        phone = b.phone or user.phone
+        if phone:
+            line += f" 📱 {phone}"
+        text += line + "\n"
 
     if len(bookings) > 15:
         text += f"\n... и ещё {len(bookings) - 15} записей"
@@ -386,7 +405,6 @@ async def cmd_stats(message: types.Message):
         await message.answer("⛔ У тебя нет прав для этой команды.")
         return
 
-    # Период: последние 30 дней
     today = today_salon()
     start_date = today - timedelta(days=30)
 
