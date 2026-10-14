@@ -1,5 +1,4 @@
 import os
-import re
 from datetime import timedelta, datetime
 from aiogram import Router, types, F
 from aiogram.filters import Command
@@ -37,10 +36,10 @@ class ManualBooking(StatesGroup):
     entering_name = State()
 
 
-# ===== Вспомогательная: пометка источника =====
+# ===== Вспомогательные =====
 
 def _source_icon(source: str) -> str:
-    """Возвращает эмодзи для источника записи."""
+    """Эмодзи источника записи."""
     if source == "phone":
         return "📞"
     elif source == "bot":
@@ -48,11 +47,53 @@ def _source_icon(source: str) -> str:
     return "•"
 
 
-# ===== Универсальная клавиатура отмены =====
-
 def cancel_kb():
     builder = InlineKeyboardBuilder()
     builder.button(text="❌ Отменить создание", callback_data="mb_cancel")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+async def _build_dates_kb(prefix: str = "mb_date_"):
+    """Строит клавиатуру с доступными датами (без прошедших)."""
+    today = today_salon()
+    weekdays_ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+
+    # Есть ли слоты на сегодня?
+    today_iso = today.isoformat()
+    booked_today = await rq.get_booked_times(today_iso)
+    now_plus_2h = now_salon() + timedelta(hours=2)
+
+    today_has_slots = False
+    for t in ALL_TIMES:
+        if t in booked_today:
+            continue
+        hour, minute = map(int, t.split(":"))
+        slot_time = datetime.combine(
+            today,
+            datetime.min.time().replace(hour=hour, minute=minute),
+        )
+        if slot_time > now_plus_2h:
+            today_has_slots = True
+            break
+
+    builder = InlineKeyboardBuilder()
+    for i in range(7):
+        d = today + timedelta(days=i)
+
+        # Не показываем «Сегодня», если слотов нет
+        if i == 0 and not today_has_slots:
+            continue
+
+        if i == 0:
+            label = f"Сегодня, {d.strftime('%d.%m')}"
+        elif i == 1:
+            label = f"Завтра, {d.strftime('%d.%m')}"
+        else:
+            label = f"{weekdays_ru[d.weekday()]}, {d.strftime('%d.%m')}"
+        builder.button(text=label, callback_data=f"{prefix}{d.isoformat()}")
+
+    builder.row(types.InlineKeyboardButton(text="❌ Отмена", callback_data="mb_cancel"))
     builder.adjust(1)
     return builder.as_markup()
 
@@ -150,7 +191,7 @@ async def cmd_del_service(message: types.Message):
 
 
 # =========================================================================
-#                        РУЧНАЯ ЗАПИСЬ (по звонку)
+#                     РУЧНАЯ ЗАПИСЬ (по звонку)
 # =========================================================================
 
 @router.message(Command("add_booking"))
@@ -183,7 +224,7 @@ async def cmd_add_booking(message: types.Message, state: FSMContext):
     )
 
 
-@router.callback_query(F.data.startswith("mb_srv_"), ManualBooking.choosing_service)
+@router.callback_query(F.data.startswith("mb_srv_"))
 async def mb_choose_service(callback: types.CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
         await callback.answer("⛔ Нет прав", show_alert=True)
@@ -201,36 +242,18 @@ async def mb_choose_service(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(service_id=service_id, service_name=service.name)
     await state.set_state(ManualBooking.choosing_date)
 
-    # Клавиатура с датами
-    today = today_salon()
-    weekdays_ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-
-    builder = InlineKeyboardBuilder()
-    for i in range(7):
-        d = today + timedelta(days=i)
-        if i == 0:
-            label = f"Сегодня, {d.strftime('%d.%m')}"
-        elif i == 1:
-            label = f"Завтра, {d.strftime('%d.%m')}"
-        else:
-            label = f"{weekdays_ru[d.weekday()]}, {d.strftime('%d.%m')}"
-        builder.button(
-            text=label,
-            callback_data=f"mb_date_{d.isoformat()}",
-        )
-    builder.row(types.InlineKeyboardButton(text="❌ Отмена", callback_data="mb_cancel"))
-    builder.adjust(1)
+    kb = await _build_dates_kb(prefix="mb_date_")
 
     await callback.message.answer(
         f"Услуга: <b>{service.name}</b>\n\n"
         f"<b>Шаг 2/5.</b> Выбери дату:",
         parse_mode="HTML",
-        reply_markup=builder.as_markup(),
+        reply_markup=kb,
     )
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("mb_date_"), ManualBooking.choosing_date)
+@router.callback_query(F.data.startswith("mb_date_"))
 async def mb_choose_date(callback: types.CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
         await callback.answer("⛔ Нет прав", show_alert=True)
@@ -238,7 +261,6 @@ async def mb_choose_date(callback: types.CallbackQuery, state: FSMContext):
 
     date_str = callback.data.split("_", 2)[2]
 
-    # Проверяем слоты
     booked = await rq.get_booked_times(date_str)
 
     today = today_salon()
@@ -261,10 +283,12 @@ async def mb_choose_date(callback: types.CallbackQuery, state: FSMContext):
             if slot_time <= now_plus_2h:
                 continue
 
+        # payload без ":": "1200"
+        time_payload = t.replace(":", "")
         row_buffer.append(
             types.InlineKeyboardButton(
                 text=t,
-                callback_data=f"mb_time_{date_str}_{t}",
+                callback_data=f"mb_tm_{date_str}_{time_payload}",
             )
         )
         free_count += 1
@@ -276,16 +300,22 @@ async def mb_choose_date(callback: types.CallbackQuery, state: FSMContext):
     if row_buffer:
         builder.row(*row_buffer)
 
-    builder.row(types.InlineKeyboardButton(text="❌ Отмена", callback_data="mb_cancel"))
-    builder.adjust(3)
-
     if free_count == 0:
+        # Нет слотов — только «Назад» + «Отмена»
+        builder = InlineKeyboardBuilder()
+        builder.button(text="⬅️ Выбрать другую дату", callback_data="mb_back_to_dates")
+        builder.button(text="❌ Отмена", callback_data="mb_cancel")
+        builder.adjust(1)
+
         await callback.message.answer(
             f"📅 Дата: {date_str}\n\n"
             f"⚠️ На эту дату нет свободных слотов.",
-            reply_markup=cancel_kb(),
+            reply_markup=builder.as_markup(),
         )
     else:
+        builder.row(types.InlineKeyboardButton(text="❌ Отмена", callback_data="mb_cancel"))
+        builder.adjust(3)
+
         await callback.message.answer(
             f"📅 Дата: <b>{date_str}</b>\n\n"
             f"<b>Шаг 3/5.</b> Выбери время:",
@@ -295,18 +325,48 @@ async def mb_choose_date(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("mb_time_"), ManualBooking.choosing_time)
+@router.callback_query(F.data == "mb_back_to_dates")
+async def mb_back_to_dates(callback: types.CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет прав", show_alert=True)
+        return
+
+    data = await state.get_data()
+    service_id = data.get("service_id")
+    service_name = data.get("service_name", "услуга")
+
+    if not service_id:
+        # Контекст потерян — просим заново
+        await callback.message.answer("⚠️ Контекст потерян. Начни заново: /add_booking")
+        await state.clear()
+        await callback.answer()
+        return
+
+    await state.set_state(ManualBooking.choosing_date)
+
+    kb = await _build_dates_kb(prefix="mb_date_")
+
+    await callback.message.answer(
+        f"Услуга: <b>{service_name}</b>\n\n"
+        f"<b>Шаг 2/5.</b> Выбери дату:",
+        parse_mode="HTML",
+        reply_markup=kb,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("mb_tm_"))
 async def mb_choose_time(callback: types.CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
         await callback.answer("⛔ Нет прав", show_alert=True)
         return
 
-    # Формат: mb_time_<date>_<time>
-    # Разбиваем по "_" но date содержит дефисы, а time содержит ":" — оба безопасны
+    # payload: mb_tm_<date>_<hhmm>   например mb_tm_2026-10-16_1200
     parts = callback.data.split("_")
-    # parts[0]=mb, parts[1]=time, parts[2]=date, parts[3]=time
+    # parts = ["mb", "tm", "2026-10-16", "1200"]
     date_str = parts[2]
-    time_str = parts[3]
+    time_raw = parts[3]  # "1200"
+    time_str = f"{time_raw[:2]}:{time_raw[2:4]}"  # "12:00"
 
     # Проверяем занятость
     booked = await rq.get_booked_times(date_str)
@@ -322,6 +382,7 @@ async def mb_choose_time(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(ManualBooking.entering_phone)
 
     await callback.message.answer(
+        f"📅 Дата: <b>{date_str}</b>\n"
         f"⏰ Время: <b>{time_str}</b>\n\n"
         f"<b>Шаг 4/5.</b> Введи телефон клиента:\n"
         f"Формат: <code>+7XXXXXXXXXX</code>\n"
@@ -340,7 +401,6 @@ async def mb_enter_phone(message: types.Message, state: FSMContext):
     phone_raw = (message.text or "").strip()
     digits = "".join(c for c in phone_raw if c.isdigit() or c == "+")
 
-    # Нормализация
     if digits.startswith("8") and len(digits) == 11:
         digits = "+7" + digits[1:]
     elif digits.startswith("7") and len(digits) == 11:
@@ -385,7 +445,16 @@ async def mb_enter_name(message: types.Message, state: FSMContext):
     time_str = data.get("time_str")
     phone = data.get("phone")
 
-    # Создаём виртуального пользователя
+    # Проверяем занятость ещё раз
+    booked = await rq.get_booked_times(date_str)
+    if time_str in booked:
+        await message.answer(
+            "⚠️ Это время уже занято. Создание отменено.",
+        )
+        await state.clear()
+        return
+
+    # Виртуальный пользователь
     virtual_user = await rq.create_virtual_user(
         first_name=name,
         phone=phone,
@@ -626,7 +695,7 @@ async def cmd_user(message: types.Message):
         return
 
     parts = message.text.split()
-    if len(parts) != 2 or not parts[1].isdigit():
+    if len(parts) != 2 or not parts[1].lstrip("-").isdigit():
         await message.answer(
             "Использование: /user <telegram_id>\n"
             "Например: /user 575558031"
@@ -678,7 +747,7 @@ async def cmd_history(message: types.Message):
         return
 
     parts = message.text.split()
-    if len(parts) != 2 or not parts[1].isdigit():
+    if len(parts) != 2 or not parts[1].lstrip("-").isdigit():
         await message.answer(
             "Использование: /history <telegram_id>\n"
             "Например: /history 575558031"
@@ -715,8 +784,7 @@ async def cmd_history(message: types.Message):
         status_emoji = "✅" if b.status != "cancelled" else "❌"
         src = _source_icon(b.source or "bot")
 
-        line = f"{status_emoji} {b.date} {b.time} — {service_name} {src}"
-        text += line + "\n"
+        text += f"{status_emoji} {b.date} {b.time} — {service_name} {src}\n"
 
     if len(bookings) > 15:
         text += f"\n... и ещё {len(bookings) - 15} записей"
