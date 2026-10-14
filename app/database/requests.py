@@ -1,5 +1,5 @@
-from sqlalchemy import select
-from sqlalchemy import func
+import time
+from sqlalchemy import select, func
 from app.database.engine import async_session
 from app.database.models import Service, User, Booking, BlockedUser
 
@@ -76,6 +76,7 @@ async def create_booking(
     date: str,
     time: str,
     phone: str | None = None,
+    source: str = "bot",
 ) -> Booking:
     """Создаёт новую запись."""
     async with async_session() as session:
@@ -85,6 +86,7 @@ async def create_booking(
             date=date,
             time=time,
             phone=phone,
+            source=source,
             status="pending",
         )
         session.add(booking)
@@ -245,7 +247,6 @@ async def get_bookings_for_period(start_date: str, end_date: str) -> list[Bookin
 async def get_user_bookings_count(user_id: int) -> int:
     """Возвращает количество всех записей пользователя."""
     async with async_session() as session:
-        from sqlalchemy import func
         result = await session.execute(
             select(func.count(Booking.id)).where(Booking.user_id == user_id)
         )
@@ -255,7 +256,6 @@ async def get_user_bookings_count(user_id: int) -> int:
 async def get_user_active_bookings_count(user_id: int) -> int:
     """Возвращает количество активных записей."""
     async with async_session() as session:
-        from sqlalchemy import func
         result = await session.execute(
             select(func.count(Booking.id)).where(
                 Booking.user_id == user_id,
@@ -336,3 +336,21 @@ async def get_user_by_telegram_id(telegram_id: int) -> User | None:
             select(User).where(User.telegram_id == telegram_id)
         )
         return result.scalar_one_or_none()
+
+async def create_virtual_user(first_name: str, phone: str) -> User:
+    """Создаёт 'виртуального' пользователя для записей по звонку."""
+    async with async_session() as session:
+        virtual_id = -int(time.time() * 1000)
+
+        user = User(
+            telegram_id=virtual_id,
+            first_name=first_name,
+            username=None,
+            phone=phone,
+            is_virtual=True,
+            role="client",
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user
