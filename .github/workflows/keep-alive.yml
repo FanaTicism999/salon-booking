@@ -1,0 +1,15 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    # Запускать каждые 10 минут (звёздочка означает "каждую")
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Позволяет запускать проверку вручную
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Application
+        run: |
+          curl -sSf https://salon-booking-qtx8.onrender.com/ || echo "Ping failed, but continuing..."
